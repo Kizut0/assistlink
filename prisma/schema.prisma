@@ -1,0 +1,100 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Get a free hosted Postgres database in seconds: `npx create-db`
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum Role {
+  PROFESSOR
+  FACULTY
+  ADMIN
+  STUDENT
+}
+
+enum PostStatus {
+  OPEN
+  CLOSED
+}
+
+enum ApplicationStatus {
+  PENDING
+  ACCEPTED
+  REJECTED
+}
+
+enum JobCategory {
+  RA
+  TA
+}
+
+model Department {
+  id    Int     @id @default(autoincrement())
+  name  String  @unique
+  users User[]
+}
+
+model User {
+  id           Int      @id @default(autoincrement())
+  adObjectId   String   @unique
+  email        String   @unique
+  name         String
+  phone        String?
+  role         Role     @default(STUDENT)
+  departmentId Int?
+  department   Department? @relation(fields: [departmentId], references: [id])
+  student      Student?
+  posts        Post[]   @relation("authored")
+  createdAt    DateTime @default(now())
+}
+
+model Student {
+  id               Int    @id @default(autoincrement())
+  userId           Int    @unique
+  user             User   @relation(fields: [userId], references: [id])
+  workHoursPerWeek Int?
+  gpa              Float?
+  resumeUrl        String?
+  resumeText       String?
+  bio              String?
+  skills           String[]
+  applications     Application[]
+}
+
+model Post {
+  id              Int           @id @default(autoincrement())
+  title           String
+  content         String
+  requiredSkills  String[]
+  status          PostStatus    @default(OPEN)
+  authorId        Int
+  author          User          @relation("authored", fields: [authorId], references: [id])
+  applications    Application[]
+  createdAt       DateTime      @default(now())
+}
+
+model Application {
+  id          Int                @id @default(autoincrement())
+  studentId   Int
+  student     Student            @relation(fields: [studentId], references: [id])
+  postId      Int
+  post        Post               @relation(fields: [postId], references: [id])
+  status      ApplicationStatus  @default(PENDING)
+  aiScore     Float?
+  aiRationale String?
+  createdAt   DateTime           @default(now())
+}
+
+model APIKey {
+  id        Int     @id @default(autoincrement())
+  userId    Int
+  key       String  @unique
+  createdAt DateTime @default(now())
+}
