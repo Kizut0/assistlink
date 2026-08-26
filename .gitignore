@@ -1,8 +1,15 @@
 node_modules/
 .env
 .env.*
+!.env.example
 dist/
 *.log
 prisma/*.db
 
 /src/generated/prisma
+
+# Local IDE configuration (per-developer)
+.claude/
+.agents/
+.windsurf/
+CLAUDE.md
