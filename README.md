@@ -40,7 +40,7 @@ A platform connecting students with research and teaching opportunities.
 
 6. **Seed the database with sample data** (optional)
    ```bash
-   node seed-data.js
+   npm run seed
    ```
 
 7. **Start the development server**
