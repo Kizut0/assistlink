@@ -1,15 +1,20 @@
 {
   "name": "assistlink",
   "version": "1.0.0",
-  "description": "",
-  "main": "index.js",
+  "description": "A platform connecting students with research and teaching opportunities.",
+  "main": "src/server.js",
   "engines": {
     "node": ">=22"
   },
   "scripts": {
     "dev": "node --watch src/server.js",
     "start": "node src/server.js",
-    "seed": "tsx prisma/seed.ts"
+    "seed": "tsx prisma/seed.ts",
+    "migrate": "prisma migrate dev",
+    "migrate:deploy": "prisma migrate deploy",
+    "migrate:reset": "prisma migrate reset",
+    "generate": "prisma generate",
+    "studio": "prisma studio"
   },
   "repository": {
     "type": "git",

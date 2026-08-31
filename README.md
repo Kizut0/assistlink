@@ -33,10 +33,14 @@ A platform connecting students with research and teaching opportunities.
    docker-compose up -d
    ```
 
-5. **Run database migrations**
+5. **Apply database migrations**
    ```bash
-   npx prisma db push
+   npx prisma migrate deploy   # apply existing migrations to the DB
+   npx prisma generate         # generate the Prisma client
    ```
+   For local development you can instead run `npm run migrate`
+   (`prisma migrate dev`), which applies pending migrations and regenerates
+   the client in one step.
 
 6. **Seed the database with sample data** (optional)
    ```bash
@@ -51,15 +55,32 @@ A platform connecting students with research and teaching opportunities.
 
 ### Database
 
-- **View/manage data**: `npx prisma studio`
-- **Generate Prisma client**: `npx prisma generate`
-- **Create new migration**: `npx prisma db push`
+This project uses **Prisma migrations** as the single source of truth for the
+database schema. Do not use `prisma db push` — it bypasses migration history
+and will cause drift.
+
+- **View/manage data**: `npm run studio` (`npx prisma studio`)
+- **Generate Prisma client**: `npm run generate` (`npx prisma generate`)
+- **Create a new migration** (after editing `schema.prisma`):
+  ```bash
+  npx prisma migrate dev --name <describe_your_change>
+  ```
+- **Reset the database** (drop, re-apply all migrations, then re-seed manually):
+  ```bash
+  npm run migrate:reset   # then: npm run seed
+  ```
+- **Apply migrations in CI/production**: `npm run migrate:deploy`
 
 ### Scripts
 
 - `npm run dev` - Start dev server with auto-reload
 - `npm start` - Start production server
 - `npm run seed` - Run seed script
+- `npm run migrate` - Create/apply migrations in development (`prisma migrate dev`)
+- `npm run migrate:deploy` - Apply migrations (CI/production)
+- `npm run migrate:reset` - Drop and re-apply all migrations
+- `npm run generate` - Generate the Prisma client
+- `npm run studio` - Open Prisma Studio
 
 ### Project Structure
 
@@ -68,10 +89,10 @@ assistlink/
 ├── src/
 │   ├── server.js       # Main server entry point
 │   ├── app.js          # Express app configuration
-│   └── generated/      # Generated Prisma client
+│   └── generated/      # Generated Prisma client (git-ignored)
 ├── prisma/
 │   ├── schema.prisma   # Database schema
-│   ├── migrations/     # Database migrations
+│   ├── migrations/     # Database migrations (source of truth)
 │   └── seed.ts         # Seed script (TypeScript)
 ├── docker-compose.yml  # Docker configuration
 ├── package.json        # Dependencies & scripts
@@ -98,6 +119,5 @@ The project uses Prisma ORM with PostgreSQL. Main models:
 - **Post** - Job/RA/TA postings
 - **Application** - Student applications to posts
 - **Department** - Academic departments
-- **APIKey** - API authentication keys
 
-See `prisma/schema.prisma` for full schema.
+See `prisma/schema.prisma` for the full schema.

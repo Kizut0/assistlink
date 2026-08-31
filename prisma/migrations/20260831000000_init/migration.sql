@@ -1,5 +1,11 @@
 -- CreateEnum
-CREATE TYPE "Role" AS ENUM ('ADMIN', 'FACULTY', 'STUDENT');
+CREATE TYPE "Role" AS ENUM ('PROFESSOR', 'FACULTY', 'ADMIN', 'STUDENT');
+
+-- CreateEnum
+CREATE TYPE "PostStatus" AS ENUM ('OPEN', 'CLOSED');
+
+-- CreateEnum
+CREATE TYPE "ApplicationStatus" AS ENUM ('PENDING', 'ACCEPTED', 'REJECTED');
 
 -- CreateTable
 CREATE TABLE "Department" (
@@ -27,6 +33,12 @@ CREATE TABLE "User" (
 CREATE TABLE "Student" (
     "id" SERIAL NOT NULL,
     "userId" INTEGER NOT NULL,
+    "workHoursPerWeek" INTEGER,
+    "gpa" DOUBLE PRECISION,
+    "resumeUrl" TEXT,
+    "resumeText" TEXT,
+    "bio" TEXT,
+    "skills" TEXT[],
 
     CONSTRAINT "Student_pkey" PRIMARY KEY ("id")
 );
@@ -36,10 +48,25 @@ CREATE TABLE "Post" (
     "id" SERIAL NOT NULL,
     "title" TEXT NOT NULL,
     "content" TEXT NOT NULL,
+    "requiredSkills" TEXT[],
+    "status" "PostStatus" NOT NULL DEFAULT 'OPEN',
     "authorId" INTEGER NOT NULL,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
     CONSTRAINT "Post_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "Application" (
+    "id" SERIAL NOT NULL,
+    "studentId" INTEGER NOT NULL,
+    "postId" INTEGER NOT NULL,
+    "status" "ApplicationStatus" NOT NULL DEFAULT 'PENDING',
+    "aiScore" DOUBLE PRECISION,
+    "aiRationale" TEXT,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "Application_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateIndex
@@ -62,3 +89,9 @@ ALTER TABLE "Student" ADD CONSTRAINT "Student_userId_fkey" FOREIGN KEY ("userId"
 
 -- AddForeignKey
 ALTER TABLE "Post" ADD CONSTRAINT "Post_authorId_fkey" FOREIGN KEY ("authorId") REFERENCES "User"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "Application" ADD CONSTRAINT "Application_studentId_fkey" FOREIGN KEY ("studentId") REFERENCES "Student"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "Application" ADD CONSTRAINT "Application_postId_fkey" FOREIGN KEY ("postId") REFERENCES "Post"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
