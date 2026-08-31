@@ -91,10 +91,3 @@ model Application {
   aiRationale String?
   createdAt   DateTime           @default(now())
 }
-
-model APIKey {
-  id        Int     @id @default(autoincrement())
-  userId    Int
-  key       String  @unique
-  createdAt DateTime @default(now())
-}
