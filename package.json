@@ -2,14 +2,15 @@
   "name": "assistlink",
   "version": "1.0.0",
   "description": "A platform connecting students with research and teaching opportunities.",
-  "main": "src/server.js",
+  "main": "src/server.ts",
   "engines": {
     "node": ">=22"
   },
   "scripts": {
-    "dev": "node --watch src/server.js",
-    "start": "node src/server.js",
+    "dev": "tsx watch src/server.ts",
+    "start": "tsx src/server.ts",
     "seed": "tsx prisma/seed.ts",
+    "typecheck": "tsc --noEmit",
     "migrate": "prisma migrate dev",
     "migrate:deploy": "prisma migrate deploy",
     "migrate:reset": "prisma migrate reset",
@@ -37,11 +38,15 @@
     "jsonwebtoken": "^9.0.3",
     "openai": "^7.5.0",
     "pg": "^8.23.0",
+    "tsx": "^4.23.13",
     "zod": "^4.4.3"
   },
   "devDependencies": {
+    "@types/express": "^5.0.0",
+    "@types/jsonwebtoken": "^9.0.10",
+    "@types/node": "^22.10.0",
     "dotenv": "^17.4.2",
     "prisma": "^7.9.1",
-    "tsx": "^4.23.13"
+    "typescript": "^5.7.0"
   }
 }
