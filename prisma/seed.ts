@@ -94,7 +94,8 @@ async function main() {
   const post1 = await prisma.post.create({
     data: {
       title: 'Research Assistant Needed - ML Project',
-      content: 'Looking for a motivated student to help with machine learning research on image classification.',
+      details: 'Looking for a motivated student to help with machine learning research on image classification.',
+      jobCategory: 'RA',
       requiredSkills: ['Python', 'TensorFlow', 'Machine Learning'],
       authorId: professor.id,
       status: 'OPEN',
@@ -104,7 +105,8 @@ async function main() {
   const post2 = await prisma.post.create({
     data: {
       title: 'Teaching Assistant Wanted - Data Structures',
-      content: 'Need help grading assignments and leading lab sessions for Data Structures course.',
+      details: 'Need help grading assignments and leading lab sessions for Data Structures course.',
+      jobCategory: 'TA',
       requiredSkills: ['Java', 'Data Structures', 'Teaching'],
       authorId: professor.id,
       status: 'OPEN',

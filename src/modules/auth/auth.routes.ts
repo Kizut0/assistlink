@@ -1,13 +1,15 @@
 import { Router } from 'express';
-import { fail } from '../../utils/apiResponse.js';
+import { asyncHandler } from '../../utils/asyncHandler.js';
+import { auth } from '../../middleware/auth.js';
+import * as controller from './auth.controller.js';
 
-// STUB — implemented in a later phase.
-// Planned endpoints:
-//   GET  /auth/login     -> redirect to Microsoft AD (OIDC)
-//   GET  /auth/callback  -> exchange code, upsert user, issue JWT
-//   GET  /auth/me        -> current user from JWT
 const router = Router();
 
-router.use((_req, res) => fail(res, 501, 'auth module not implemented yet'));
+// Public — the Microsoft AD sign-in flow.
+router.get('/login', asyncHandler(controller.login));
+router.get('/callback', asyncHandler(controller.callback));
+
+// Protected — confirms auth works end to end.
+router.get('/me', auth, asyncHandler(controller.me));
 
 export default router;
