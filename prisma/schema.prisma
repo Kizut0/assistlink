@@ -91,4 +91,7 @@ model Application {
   aiScore     Float?
   aiRationale String?
   createdAt   DateTime           @default(now())
+
+  // one application per student per post
+  @@unique([studentId, postId])
 }

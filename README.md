@@ -123,11 +123,11 @@ curl http://localhost:8081/assistlink/api/posts \
 
 ```bash
 npm run typecheck     # tsc --noEmit
-./smoke-test.sh       # permission matrix + posts lifecycle (server must be running)
+./smoke-test.sh       # permission matrix + posts lifecycle + profiles + applications (server must be running)
 ```
 
-`smoke-test.sh` assumes the seeded professor is `userId 1`; override with
-`PROF_ID=n ./smoke-test.sh`.
+`smoke-test.sh` assumes the seeded professor is `userId 1` and the seeded
+student is `userId 3`; override with `PROF_ID=n STUDENT_ID=n ./smoke-test.sh`.
 
 ## Database
 
@@ -174,11 +174,24 @@ envelope: `{ success: true, data }` or `{ success: false, error: { message } }`.
 | POST | `/posts` | PROFESSOR, ADMIN | Create a posting |
 | PATCH | `/posts/:id` | owner or ADMIN | Edit a posting |
 | PATCH | `/posts/:id/close` | owner or ADMIN | Set status to `CLOSED` |
+| GET | `/profiles/me` | STUDENT | Your own profile (auto-created empty on first read) |
+| PUT | `/profiles/me` | STUDENT | Update `skills[]`, `resumeUrl`, `resumeText`, `workHoursPerWeek`, `gpa`, `bio` |
+| POST | `/posts/:postId/applications` | STUDENT | Apply to an open post. 409 if already applied, 400 if closed or you haven't set up a profile |
 
-`profiles`, `applications`, `users`, `ranking`, `events` and `peer` are mounted
-but return `501` until their phase lands.
+Viewing applicants and accepting/rejecting them aren't built yet (still 501), same with `users`, `ranking`, `events`, `peer`.
 
-**Create a post** (`POST /posts`) — every write route is zod-validated:
+**Update your profile** (`PUT /profiles/me`), need at least one field:
+
+```json
+{
+  "skills": ["Python", "React"],
+  "bio": "Second-year CS student interested in ML.",
+  "gpa": 3.7,
+  "workHoursPerWeek": 10
+}
+```
+
+**Create a post** (`POST /posts`), every write route is zod-validated:
 
 ```json
 {
@@ -225,7 +238,7 @@ the database. Keep each layer thin.
 - **User** — students, professors, admins (`role` enum, linked to AD by `adObjectId`)
 - **Student** — 1:1 extension of User (GPA, weekly hours, résumé, `skills[]`)
 - **Post** — RA/TA postings (`details`, `jobCategory`, `private`, `status`)
-- **Application** — a student's application (`status`, `aiScore`, `aiRationale`)
+- **Application** — a student's application (`status`, `aiScore`, `aiRationale`, one per student per post)
 - **Department** — academic departments
 
 See `prisma/schema.prisma` for the full schema.
