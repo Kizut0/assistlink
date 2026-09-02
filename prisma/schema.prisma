@@ -14,7 +14,6 @@ datasource db {
 
 enum Role {
   PROFESSOR
-  FACULTY
   ADMIN
   STUDENT
 }
@@ -69,15 +68,17 @@ model Student {
 }
 
 model Post {
-  id              Int           @id @default(autoincrement())
-  title           String
-  content         String
-  requiredSkills  String[]
-  status          PostStatus    @default(OPEN)
-  authorId        Int
-  author          User          @relation("authored", fields: [authorId], references: [id])
-  applications    Application[]
-  createdAt       DateTime      @default(now())
+  id             Int           @id @default(autoincrement())
+  title          String
+  details        String
+  requiredSkills String[]
+  jobCategory    JobCategory
+  private        Boolean       @default(false)
+  status         PostStatus    @default(OPEN)
+  authorId       Int
+  author         User          @relation("authored", fields: [authorId], references: [id])
+  applications   Application[]
+  createdAt      DateTime      @default(now())
 }
 
 model Application {

@@ -20,6 +20,13 @@ export function errorHandler(
     return fail(res, 400, 'Validation failed', err.issues);
   }
 
+  // Upstream client errors (e.g. body-parser sets err.status = 400 on malformed JSON).
+  const upstream = (err as { status?: number; statusCode?: number }).status
+    ?? (err as { status?: number; statusCode?: number }).statusCode;
+  if (typeof upstream === 'number' && upstream >= 400 && upstream < 500) {
+    return fail(res, upstream, err instanceof Error ? err.message : 'Bad Request');
+  }
+
   console.error('Unhandled error:', err);
   const message = config.isProduction
     ? 'Internal Server Error'

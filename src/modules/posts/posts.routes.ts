@@ -1,18 +1,37 @@
 import { Router } from 'express';
 import { asyncHandler } from '../../utils/asyncHandler.js';
-import { authenticate } from '../../middleware/authenticate.js';
-import { authorize } from '../../middleware/authorize.js';
+import { auth } from '../../middleware/auth.js';
+import { requireRole } from '../../middleware/roles.js';
+import { validate } from '../../middleware/validate.js';
+import { createPostSchema, updatePostSchema } from './posts.validator.js';
 import * as controller from './posts.controller.js';
 
 const router = Router();
 
-// Public reads
-router.get('/', asyncHandler(controller.list));
-router.get('/:id', asyncHandler(controller.getOne));
+// Task 18 — reads require authentication (any signed-in role).
+router.get('/', auth, asyncHandler(controller.list));
+router.get('/:id', auth, asyncHandler(controller.getOne));
 
-// Protected writes — PROFESSOR or ADMIN; per-post ownership enforced in service.
-router.post('/', authenticate, authorize('PROFESSOR', 'ADMIN'), asyncHandler(controller.create));
-router.patch('/:id', authenticate, authorize('PROFESSOR', 'ADMIN'), asyncHandler(controller.update));
-router.patch('/:id/close', authenticate, authorize('PROFESSOR', 'ADMIN'), asyncHandler(controller.close));
+// Tasks 19/20 — writes are PROFESSOR/ADMIN; ownership enforced in the service.
+router.post(
+  '/',
+  auth,
+  requireRole('PROFESSOR', 'ADMIN'),
+  validate(createPostSchema),
+  asyncHandler(controller.create),
+);
+router.patch(
+  '/:id',
+  auth,
+  requireRole('PROFESSOR', 'ADMIN'),
+  validate(updatePostSchema),
+  asyncHandler(controller.update),
+);
+router.patch(
+  '/:id/close',
+  auth,
+  requireRole('PROFESSOR', 'ADMIN'),
+  asyncHandler(controller.close),
+);
 
 export default router;
