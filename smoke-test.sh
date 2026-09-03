@@ -1,21 +1,24 @@
 #!/usr/bin/env bash
-# AssistLink — Phase 02/03 smoke test (permission matrix + posts lifecycle).
+# permission matrix + posts lifecycle + profiles + applications
+# uses the x-dev-user header to fake AD logins (dev only, blocked in prod)
 #
-# Uses the non-production `x-dev-user` bypass to stand in for AD-issued JWTs.
+#   docker compose up -d
+#   npm run dev            # terminal 1
+#   ./smoke-test.sh        # terminal 2
 #
-#   docker compose up -d      # Postgres
-#   npm run dev               # terminal 1
-#   ./smoke-test.sh           # terminal 2
-#
-# Assumes the seeded professor is userId 1 (override with PROF_ID=n ./smoke-test.sh).
+# assumes seeded professor is userId 1 and seeded student (Alice) is userId 3
+# override with PROF_ID=n STUDENT_ID=n ./smoke-test.sh
 set -u
 
 BASE="${BASE:-http://localhost:8081/assistlink/api}"
 PROF_ID="${PROF_ID:-1}"
+STUDENT_ID="${STUDENT_ID:-3}"
 
 PROF='{"userId":'"$PROF_ID"',"role":"PROFESSOR","email":"prof@au.edu"}'
 OTHER_PROF='{"userId":999,"role":"PROFESSOR","email":"other@au.edu"}'
-STUDENT='{"userId":3,"role":"STUDENT","email":"stu@au.edu"}'
+STUDENT='{"userId":'"$STUDENT_ID"',"role":"STUDENT","email":"stu@au.edu"}'
+# not seeded - a STUDENT with no Student row yet, for the "no profile" apply check
+NEW_STUDENT='{"userId":42,"role":"STUDENT","email":"newstu@au.edu"}'
 JSON='Content-Type: application/json'
 
 pass=0; fail=0
@@ -59,6 +62,47 @@ if [ -n "${PID:-}" ]; then
   curl -s "$BASE/posts" -H "x-dev-user: $STUDENT" > /tmp/al_list
   if grep -q "\"id\":$PID," /tmp/al_list; then check "closed post hidden from list" "hidden" "listed"
   else check "closed post hidden from list" "hidden" "hidden"; fi
+fi
+
+echo "== Phase 04 — student profile CRUD (Task 22) =="
+check "get profile no token 401"    401 "$(code "$BASE/me/profile")"
+check "get profile as PROFESSOR 403" 403 "$(code "$BASE/me/profile" -H "x-dev-user: $PROF")"
+check "get profile as STUDENT 200"  200 "$(code "$BASE/me/profile" -H "x-dev-user: $STUDENT")"
+check "put profile empty body 400"  400 "$(code -X PUT "$BASE/me/profile" -H "$JSON" -H "x-dev-user: $STUDENT" -d '{}')"
+check "put profile bad gpa 400"     400 "$(code -X PUT "$BASE/me/profile" -H "$JSON" -H "x-dev-user: $STUDENT" -d '{"gpa":5.0}')"
+check "put profile as PROFESSOR 403" 403 "$(code -X PUT "$BASE/me/profile" -H "$JSON" -H "x-dev-user: $PROF" -d '{"bio":"nope"}')"
+
+BIO="updated bio $(date +%s)"
+check "put profile valid 200"       200 "$(code -X PUT "$BASE/me/profile" -H "$JSON" -H "x-dev-user: $STUDENT" -d '{"bio":"'"$BIO"'","skills":["Go","SQL"]}')"
+if grep -q "$BIO" /tmp/al_body; then check "profile update persisted" "persisted" "persisted"
+else check "profile update persisted" "persisted" "missing"; fi
+
+echo "== Phase 04 — apply to a post (Task 23) =="
+STAMP4=$(date +%s)
+check "create post for apply test 201" 201 "$(code -X POST "$BASE/posts" -H "$JSON" -H "x-dev-user: $PROF" -d '{"title":"RA opening '"$STAMP4"'","details":"apply test","jobCategory":"RA"}')"
+APID=$(sed -n 's/.*"id":\([0-9]*\).*/\1/p' /tmp/al_body | head -1)
+echo "  (apply-test post id = ${APID:-?})"
+
+check "apply no token 401"          401 "$(code -X POST "$BASE/posts/${APID:-0}/applications")"
+check "apply as PROFESSOR 403"      403 "$(code -X POST "$BASE/posts/${APID:-0}/applications" -H "x-dev-user: $PROF")"
+
+# GET must be read-only: prove it doesn't silently create a profile that
+# would let a student skip the "complete your profile" guard below.
+check "get profile (no profile yet) 200" 200 "$(code "$BASE/me/profile" -H "x-dev-user: $NEW_STUDENT")"
+if grep -q '"data":null' /tmp/al_body; then check "GET didn't create a row" "no row" "no row"
+else check "GET didn't create a row" "no row" "row exists"; fi
+
+check "apply no profile 400"        400 "$(code -X POST "$BASE/posts/${APID:-0}/applications" -H "x-dev-user: $NEW_STUDENT")"
+check "apply unknown post 404"      404 "$(code -X POST "$BASE/posts/999999/applications" -H "x-dev-user: $STUDENT")"
+
+if [ -n "${APID:-}" ]; then
+  check "apply as STUDENT 201"      201 "$(code -X POST "$BASE/posts/$APID/applications" -H "x-dev-user: $STUDENT")"
+  check "apply again 409"           409 "$(code -X POST "$BASE/posts/$APID/applications" -H "x-dev-user: $STUDENT")"
+
+  check "create+close post for closed test 201" 201 "$(code -X POST "$BASE/posts" -H "$JSON" -H "x-dev-user: $PROF" -d '{"title":"TA closed '"$STAMP4"'","details":"apply test","jobCategory":"TA"}')"
+  CPID=$(sed -n 's/.*"id":\([0-9]*\).*/\1/p' /tmp/al_body | head -1)
+  check "close it 200"              200 "$(code -X PATCH "$BASE/posts/$CPID/close" -H "x-dev-user: $PROF")"
+  check "apply to closed post 400"  400 "$(code -X POST "$BASE/posts/$CPID/applications" -H "x-dev-user: $STUDENT")"
 fi
 
 echo "== $pass passed, $fail failed =="
