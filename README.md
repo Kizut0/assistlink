@@ -174,13 +174,13 @@ envelope: `{ success: true, data }` or `{ success: false, error: { message } }`.
 | POST | `/posts` | PROFESSOR, ADMIN | Create a posting |
 | PATCH | `/posts/:id` | owner or ADMIN | Edit a posting |
 | PATCH | `/posts/:id/close` | owner or ADMIN | Set status to `CLOSED` |
-| GET | `/profiles/me` | STUDENT | Your own profile (auto-created empty on first read) |
-| PUT | `/profiles/me` | STUDENT | Update `skills[]`, `resumeUrl`, `resumeText`, `workHoursPerWeek`, `gpa`, `bio` |
+| GET | `/me/profile` | STUDENT | Your own profile (`null` if you haven't saved one yet) |
+| PUT | `/me/profile` | STUDENT | Update `skills[]`, `resumeUrl`, `resumeText`, `workHoursPerWeek`, `gpa`, `bio` |
 | POST | `/posts/:postId/applications` | STUDENT | Apply to an open post. 409 if already applied, 400 if closed or you haven't set up a profile |
 
 Viewing applicants and accepting/rejecting them aren't built yet (still 501), same with `users`, `ranking`, `events`, `peer`.
 
-**Update your profile** (`PUT /profiles/me`), need at least one field:
+**Update your profile** (`PUT /me/profile`), need at least one field:
 
 ```json
 {

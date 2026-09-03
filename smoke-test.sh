@@ -65,15 +65,15 @@ if [ -n "${PID:-}" ]; then
 fi
 
 echo "== Phase 04 — student profile CRUD (Task 22) =="
-check "get profile no token 401"    401 "$(code "$BASE/profiles/me")"
-check "get profile as PROFESSOR 403" 403 "$(code "$BASE/profiles/me" -H "x-dev-user: $PROF")"
-check "get profile as STUDENT 200"  200 "$(code "$BASE/profiles/me" -H "x-dev-user: $STUDENT")"
-check "put profile empty body 400"  400 "$(code -X PUT "$BASE/profiles/me" -H "$JSON" -H "x-dev-user: $STUDENT" -d '{}')"
-check "put profile bad gpa 400"     400 "$(code -X PUT "$BASE/profiles/me" -H "$JSON" -H "x-dev-user: $STUDENT" -d '{"gpa":5.0}')"
-check "put profile as PROFESSOR 403" 403 "$(code -X PUT "$BASE/profiles/me" -H "$JSON" -H "x-dev-user: $PROF" -d '{"bio":"nope"}')"
+check "get profile no token 401"    401 "$(code "$BASE/me/profile")"
+check "get profile as PROFESSOR 403" 403 "$(code "$BASE/me/profile" -H "x-dev-user: $PROF")"
+check "get profile as STUDENT 200"  200 "$(code "$BASE/me/profile" -H "x-dev-user: $STUDENT")"
+check "put profile empty body 400"  400 "$(code -X PUT "$BASE/me/profile" -H "$JSON" -H "x-dev-user: $STUDENT" -d '{}')"
+check "put profile bad gpa 400"     400 "$(code -X PUT "$BASE/me/profile" -H "$JSON" -H "x-dev-user: $STUDENT" -d '{"gpa":5.0}')"
+check "put profile as PROFESSOR 403" 403 "$(code -X PUT "$BASE/me/profile" -H "$JSON" -H "x-dev-user: $PROF" -d '{"bio":"nope"}')"
 
 BIO="updated bio $(date +%s)"
-check "put profile valid 200"       200 "$(code -X PUT "$BASE/profiles/me" -H "$JSON" -H "x-dev-user: $STUDENT" -d '{"bio":"'"$BIO"'","skills":["Go","SQL"]}')"
+check "put profile valid 200"       200 "$(code -X PUT "$BASE/me/profile" -H "$JSON" -H "x-dev-user: $STUDENT" -d '{"bio":"'"$BIO"'","skills":["Go","SQL"]}')"
 if grep -q "$BIO" /tmp/al_body; then check "profile update persisted" "persisted" "persisted"
 else check "profile update persisted" "persisted" "missing"; fi
 
@@ -85,6 +85,13 @@ echo "  (apply-test post id = ${APID:-?})"
 
 check "apply no token 401"          401 "$(code -X POST "$BASE/posts/${APID:-0}/applications")"
 check "apply as PROFESSOR 403"      403 "$(code -X POST "$BASE/posts/${APID:-0}/applications" -H "x-dev-user: $PROF")"
+
+# GET must be read-only: prove it doesn't silently create a profile that
+# would let a student skip the "complete your profile" guard below.
+check "get profile (no profile yet) 200" 200 "$(code "$BASE/me/profile" -H "x-dev-user: $NEW_STUDENT")"
+if grep -q '"data":null' /tmp/al_body; then check "GET didn't create a row" "no row" "no row"
+else check "GET didn't create a row" "no row" "row exists"; fi
+
 check "apply no profile 400"        400 "$(code -X POST "$BASE/posts/${APID:-0}/applications" -H "x-dev-user: $NEW_STUDENT")"
 check "apply unknown post 404"      404 "$(code -X POST "$BASE/posts/999999/applications" -H "x-dev-user: $STUDENT")"
 

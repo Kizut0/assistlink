@@ -9,7 +9,7 @@ async function getStudentIdForUser(userId: number): Promise<number> {
   const student = await prisma.student.findUnique({ where: { userId } });
   if (!student) {
     throw ApiError.badRequest(
-      'Complete your student profile before applying (PUT /assistlink/api/profiles/me)',
+      'Complete your student profile before applying (PUT /assistlink/api/me/profile)',
     );
   }
   return student.id;
@@ -27,5 +27,14 @@ export async function applyToPost(userId: number, postId: number) {
   const existing = await prisma.application.findFirst({ where: { postId, studentId } });
   if (existing) throw ApiError.conflict('You have already applied to this post');
 
-  return prisma.application.create({ data: { postId, studentId } });
+  try {
+    return await prisma.application.create({ data: { postId, studentId } });
+  } catch (e) {
+    // findFirst above catches the normal case; this only fires if two requests
+    // land at the same time and both pass the check before either commits.
+    if ((e as { code?: string }).code === 'P2002') {
+      throw ApiError.conflict('You have already applied to this post');
+    }
+    throw e;
+  }
 }

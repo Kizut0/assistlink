@@ -16,7 +16,7 @@ const router = Router();
 // Implemented
 router.use('/health', healthRoutes);
 router.use('/auth', authRoutes);
-router.use('/profiles', profilesRoutes);
+router.use('/me', profilesRoutes);
 
 // mounted before '/posts' so the more specific nested path wins the match
 router.use('/posts/:postId/applications', postApplicationsRoutes);
