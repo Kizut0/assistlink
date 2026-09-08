@@ -177,8 +177,10 @@ envelope: `{ success: true, data }` or `{ success: false, error: { message } }`.
 | GET | `/me/profile` | STUDENT | Your own profile (`null` if you haven't saved one yet) |
 | PUT | `/me/profile` | STUDENT | Update `skills[]`, `resumeUrl`, `resumeText`, `workHoursPerWeek`, `gpa`, `bio` |
 | POST | `/posts/:postId/applications` | STUDENT | Apply to an open post. 409 if already applied, 400 if closed or you haven't set up a profile |
+| GET | `/posts/:postId/applications` | post owner or ADMIN | Applicant list with student profile fields and AI score/rationale, best-first |
+| PATCH | `/applications/:id` | post owner or ADMIN | Accept or reject an applicant (`ACCEPTED` / `REJECTED`) |
 
-Viewing applicants and accepting/rejecting them aren't built yet (still 501), same with `users`, `ranking`, `events`, `peer`.
+`users`, `ranking`, `events` and `peer` are mounted but return `501` until their phase lands.
 
 **Update your profile** (`PUT /me/profile`), need at least one field:
 
@@ -190,6 +192,16 @@ Viewing applicants and accepting/rejecting them aren't built yet (still 501), sa
   "workHoursPerWeek": 10
 }
 ```
+
+**Decide on an applicant** (`PATCH /applications/:id`):
+
+```json
+{ "status": "ACCEPTED" }
+```
+
+Only `ACCEPTED` or `REJECTED` are accepted — `PENDING` is the initial state an
+application is created in, not a decision. Ownership is resolved through the
+application's post, so only that post's author (or an ADMIN) can decide.
 
 **Create a post** (`POST /posts`), every write route is zod-validated:
 

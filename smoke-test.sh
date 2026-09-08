@@ -105,5 +105,37 @@ if [ -n "${APID:-}" ]; then
   check "apply to closed post 400"  400 "$(code -X POST "$BASE/posts/$CPID/applications" -H "x-dev-user: $STUDENT")"
 fi
 
+echo "== Phase 04 — view applicants (Task 24) =="
+check "applicants no token 401"      401 "$(code "$BASE/posts/${APID:-0}/applications")"
+check "applicants as STUDENT 403"    403 "$(code "$BASE/posts/${APID:-0}/applications" -H "x-dev-user: $STUDENT")"
+check "applicants non-owner prof 403" 403 "$(code "$BASE/posts/${APID:-0}/applications" -H "x-dev-user: $OTHER_PROF")"
+check "applicants unknown post 404"  404 "$(code "$BASE/posts/999999/applications" -H "x-dev-user: $PROF")"
+check "applicants as owner 200"      200 "$(code "$BASE/posts/${APID:-0}/applications" -H "x-dev-user: $PROF")"
+
+# first "id" in the list is the application id (student/user ids come later)
+AID=$(grep -o '"id":[0-9]*' /tmp/al_body | head -1 | cut -d: -f2)
+echo "  (application id = ${AID:-?})"
+if grep -q '"gpa"' /tmp/al_body; then check "applicant carries profile fields" "present" "present"
+else check "applicant carries profile fields" "present" "missing"; fi
+if grep -q '"aiScore"' /tmp/al_body; then check "applicant carries aiScore field" "present" "present"
+else check "applicant carries aiScore field" "present" "missing"; fi
+
+echo "== Phase 04 — accept / reject (Task 25) =="
+check "decide no token 401"          401 "$(code -X PATCH "$BASE/applications/${AID:-0}" -H "$JSON" -d '{"status":"ACCEPTED"}')"
+check "decide as STUDENT 403"        403 "$(code -X PATCH "$BASE/applications/${AID:-0}" -H "$JSON" -H "x-dev-user: $STUDENT" -d '{"status":"ACCEPTED"}')"
+check "decide non-owner prof 403"    403 "$(code -X PATCH "$BASE/applications/${AID:-0}" -H "$JSON" -H "x-dev-user: $OTHER_PROF" -d '{"status":"ACCEPTED"}')"
+check "decide bad status 400"        400 "$(code -X PATCH "$BASE/applications/${AID:-0}" -H "$JSON" -H "x-dev-user: $PROF" -d '{"status":"MAYBE"}')"
+check "decide PENDING rejected 400"  400 "$(code -X PATCH "$BASE/applications/${AID:-0}" -H "$JSON" -H "x-dev-user: $PROF" -d '{"status":"PENDING"}')"
+check "decide empty body 400"        400 "$(code -X PATCH "$BASE/applications/${AID:-0}" -H "$JSON" -H "x-dev-user: $PROF" -d '{}')"
+check "decide unknown application 404" 404 "$(code -X PATCH "$BASE/applications/999999" -H "$JSON" -H "x-dev-user: $PROF" -d '{"status":"ACCEPTED"}')"
+
+if [ -n "${AID:-}" ]; then
+  check "owner accepts 200"          200 "$(code -X PATCH "$BASE/applications/$AID" -H "$JSON" -H "x-dev-user: $PROF" -d '{"status":"ACCEPTED"}')"
+  curl -s "$BASE/posts/$APID/applications" -H "x-dev-user: $PROF" > /tmp/al_body
+  if grep -q '"status":"ACCEPTED"' /tmp/al_body; then check "decision persisted" "ACCEPTED" "ACCEPTED"
+  else check "decision persisted" "ACCEPTED" "not saved"; fi
+  check "owner can reject too 200"   200 "$(code -X PATCH "$BASE/applications/$AID" -H "$JSON" -H "x-dev-user: $PROF" -d '{"status":"REJECTED"}')"
+fi
+
 echo "== $pass passed, $fail failed =="
 [ "$fail" -eq 0 ]
