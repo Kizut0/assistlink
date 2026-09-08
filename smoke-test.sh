@@ -1,6 +1,11 @@
+<<<<<<< Updated upstream
 #!/usr/bin/env bash
 # permission matrix + posts lifecycle + profiles + applications
 # uses the x-dev-user header to fake AD logins (dev only, blocked in prod)
+=======
+git#!/usr/bin/env bash
+# AssistLink — Phase 02/03 smoke test (permission matrix + posts lifecycle).
+>>>>>>> Stashed changes
 #
 #   docker compose up -d
 #   npm run dev            # terminal 1
