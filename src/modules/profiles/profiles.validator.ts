@@ -1,9 +1,12 @@
 import { z } from 'zod';
 
-// editable fields: skills[], resumeText/resumeUrl, workHoursPerWeek, gpa, bio
+// editable fields: faculty/major, skills[], resumeText/resumeUrl,
+// workHoursPerWeek, gpa, bio
 // all optional so partial updates work, but need at least one field set
 export const upsertProfileSchema = z
   .object({
+    faculty: z.string().trim().min(1).max(200).optional().nullable(),
+    major: z.string().trim().min(1).max(200).optional().nullable(),
     skills: z.array(z.string().min(1)).optional(),
     resumeUrl: z.string().url().optional().nullable(),
     resumeText: z.string().max(20000).optional().nullable(),

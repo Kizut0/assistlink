@@ -58,6 +58,7 @@ model Student {
   id               Int    @id @default(autoincrement())
   userId           Int    @unique
   user             User   @relation(fields: [userId], references: [id])
+  major            String?
   workHoursPerWeek Int?
   gpa              Float?
   resumeUrl        String?
