@@ -1,14 +1,12 @@
 import 'dotenv/config';
 
-// Handbook Task 05 — the five vault-backed secrets the app must never boot without.
+// Required service secrets the app must never boot without. Gemini is optional
+// during local development so ranking can be added after the API key is created.
 // AD_CLIENT_ID / AD_TENANT_ID are deliberately NOT here: a client id and tenant id
-// are public AD identifiers, not Key Vault secrets (Task 05 redline). If they were
-// required, Task 38 would build its source from the five-entry vault map and the app
-// would die at boot with "Missing required secret: AD_CLIENT_ID".
+// are public AD identifiers, not service secrets.
 export const REQUIRED = [
   'DATABASE_URL',
   'JWT_SECRET',
-  'OPENAI_API_KEY',
   'PARTNER_API_KEY',
   'AD_CLIENT_SECRET',
 ] as const;
@@ -41,8 +39,15 @@ export function buildConfig(source: Source = process.env) {
     // Back-compat alias used by lib/prisma.ts.
     databaseUrl: secrets.DATABASE_URL,
 
-    // The five required secrets.
+    // Required service secrets.
     ...secrets,
+
+    // Optional until ranking is configured. Ranking returns a clear 503 when
+    // no Google AI Studio key is present, so the rest of the API still boots.
+    GEMINI_API_KEY: process.env.GEMINI_API_KEY,
+    GEMINI_MODEL: process.env.GEMINI_MODEL ?? 'gemini-2.5-flash',
+    GEMINI_BASE_URL:
+      process.env.GEMINI_BASE_URL ?? 'https://generativelanguage.googleapis.com/v1beta',
 
     // Public AD identifiers — loaded from env in every environment (Task 05 redline).
     AD_CLIENT_ID: process.env.AD_CLIENT_ID,

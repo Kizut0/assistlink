@@ -1,11 +1,13 @@
 import { Router } from 'express';
-import { fail } from '../../utils/apiResponse.js';
+import { asyncHandler } from '../../utils/asyncHandler.js';
+import { auth } from '../../middleware/auth.js';
+import { requireRole } from '../../middleware/roles.js';
+import * as controller from './ranking.controller.js';
 
-// STUB — implemented in a later phase.
-// Planned endpoints:
-//   POST /posts/:id/rank  -> OpenAI scores applicants (0-100 + rationale), sorted
+// Exported for the canonical POST /posts/:id/rank route while the ranking
+// provider remains isolated from the posts feature folder.
+export const rankPost = [auth, requireRole('PROFESSOR', 'ADMIN'), asyncHandler(controller.rank)] as const;
+
 const router = Router();
-
-router.use((_req, res) => fail(res, 501, 'ranking module not implemented yet'));
-
+router.use((_req, res) => res.status(404).json({ success: false, error: { message: 'Ranking endpoint is /posts/:id/rank' } }));
 export default router;
