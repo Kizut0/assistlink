@@ -14,8 +14,8 @@ type RequiredKey = (typeof REQUIRED)[number];
 type Secrets = Record<RequiredKey, string>;
 type Source = Record<string, string | undefined>;
 
-// Fail fast: throw on the first missing secret so the app dies at boot, never
-// mid-request. `source` is the seam Phase 07 / Task 38 swaps for the Key Vault map.
+// Fail fast after server bootstrap has optionally populated process.env from
+// Key Vault, so missing secrets stop startup rather than failing mid-request.
 export function loadConfig(source: Source): Secrets {
   const cfg = {} as Secrets;
   for (const key of REQUIRED) {

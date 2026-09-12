@@ -52,11 +52,14 @@ Gemini ranking is optional until used:
 
 ```env
 GEMINI_API_KEY=your-google-ai-studio-key
-GEMINI_MODEL=gemini-2.5-flash
+GEMINI_MODEL=gemini-3.6-flash
 ```
 
-Other settings are documented in `.env.example`. Production secrets are intended
-to come from Azure Key Vault; runtime Key Vault loading is not implemented yet.
+Other settings are documented in `.env.example`. In production, set
+`AZURE_KEY_VAULT_URL`; startup uses `DefaultAzureCredential` to load
+`DATABASE-URL`, `JWT-SECRET`, `AD-CLIENT-SECRET`, and the optional
+`GEMINI-API-KEY` before initializing the application. Managed identity is
+recommended on Azure; service-principal and Azure CLI credentials also work.
 
 ## Roles and sign-in
 
@@ -128,6 +131,16 @@ Responses use `{ "success": true, "data": ... }` or
 | `npm run studio` | Open Prisma Studio |
 
 `./smoke-test.sh` exercises the main workflow against a running seeded database.
+
+## Azure VM deployment
+
+The production container uses the VM's managed identity to read Key Vault and
+binds API port 8081 to localhost only. Copy `.env.production.example` to
+`.env.production`, set its non-secret values, add `deploy/nginx/assistlink.conf`
+to the domain's HTTPS server block, then run `./deploy.sh`. The database named by
+`DATABASE-URL` must already be reachable from the VM. Follow the complete
+[Azure VM checklist](deploy/AZURE_VM.md) for identity, RBAC, networking, TLS, and
+verification.
 
 ## Project layout
 

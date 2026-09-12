@@ -1,0 +1,14 @@
+.git
+.github
+.claude
+.agents
+.env
+.env.*
+!.env.example
+!.env.production.example
+node_modules
+src/generated
+dist
+tests
+*.log
+.DS_Store

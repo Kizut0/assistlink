@@ -1,0 +1,44 @@
+name: assistlink
+
+services:
+  api:
+    image: assistlink-api:local
+    build:
+      context: .
+      target: runtime
+    restart: unless-stopped
+    init: true
+    environment:
+      NODE_ENV: production
+      PORT: 8081
+      HOME: /tmp
+      AZURE_KEY_VAULT_URL: ${AZURE_KEY_VAULT_URL:?Set AZURE_KEY_VAULT_URL}
+      AD_CLIENT_ID: ${AD_CLIENT_ID:?Set AD_CLIENT_ID}
+      AD_TENANT_ID: ${AD_TENANT_ID:?Set AD_TENANT_ID}
+      AD_REDIRECT_URI: ${AD_REDIRECT_URI:?Set AD_REDIRECT_URI}
+      GEMINI_MODEL: ${GEMINI_MODEL:-gemini-2.5-flash}
+    ports:
+      - "127.0.0.1:8081:8081"
+    read_only: true
+    tmpfs:
+      - /tmp:size=64m,mode=1777
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    healthcheck:
+      test:
+        - CMD
+        - node
+        - -e
+        - fetch('http://127.0.0.1:8081/assistlink/api/health').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+    stop_grace_period: 30s
+    logging:
+      driver: json-file
+      options:
+        max-size: 10m
+        max-file: "3"
