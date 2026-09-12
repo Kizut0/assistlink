@@ -134,13 +134,16 @@ Responses use `{ "success": true, "data": ... }` or
 
 ## Azure VM deployment
 
-The production container uses the VM's managed identity to read Key Vault and
-binds API port 8081 to localhost only. Copy `.env.production.example` to
-`.env.production`, set its non-secret values, add `deploy/nginx/assistlink.conf`
-to the domain's HTTPS server block, then run `./deploy.sh`. The database named by
-`DATABASE-URL` must already be reachable from the VM. Follow the complete
-[Azure VM checklist](deploy/AZURE_VM.md) for identity, RBAC, networking, TLS, and
-verification.
+The production Compose stack runs both the API and PostgreSQL 16 on the VM. The
+database is private to the Compose network and persists in a named Docker volume;
+only API port 8081 is bound to VM localhost. The API uses the VM's managed
+identity to read Key Vault. Copy `.env.production.example` to `.env.production`,
+create the host-side PostgreSQL password file, add
+`deploy/nginx/assistlink.conf` to the domain's HTTPS server block, then run
+`./deploy.sh`. Follow the complete [Azure VM checklist](deploy/AZURE_VM.md) for
+identity, secrets, first-admin setup, backups, networking, TLS, and verification.
+This single-VM database design is economical but not highly available, so keep
+verified backups outside the VM.
 
 ## Project layout
 

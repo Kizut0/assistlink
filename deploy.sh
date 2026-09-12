@@ -15,15 +15,16 @@ if [[ "$(git branch --show-current)" != "main" ]]; then
   echo "Deployment must run from the main branch." >&2
   exit 1
 fi
-if ! git diff --quiet || ! git diff --cached --quiet; then
-  echo "Tracked files have uncommitted changes; deployment stopped." >&2
+if [[ -n "$(git status --porcelain --untracked-files=normal)" ]]; then
+  echo "The repository has uncommitted files; deployment stopped." >&2
   exit 1
 fi
 
-"${compose[@]}" config --quiet
 git fetch origin main
 git merge --ff-only origin/main
+"${compose[@]}" config --quiet
 "${compose[@]}" build --pull api
+"${compose[@]}" up -d --wait --wait-timeout 120 postgres
 "${compose[@]}" run --rm --no-deps api npm run migrate:production
-"${compose[@]}" up -d --remove-orphans api
+"${compose[@]}" up -d --remove-orphans --wait --wait-timeout 120
 "${compose[@]}" ps

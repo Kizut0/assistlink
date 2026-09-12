@@ -12,9 +12,10 @@ location, and deployment script. Complete the Azure and host setup below once.
 4. Add these Key Vault secrets with the exact names:
    `DATABASE-URL`, `JWT-SECRET`, `AD-CLIENT-SECRET`, and optionally
    `GEMINI-API-KEY`.
-5. Ensure the database in `DATABASE-URL` accepts connections from the VM. A
-   managed Azure Database for PostgreSQL instance is recommended; do not expose
-   PostgreSQL port 5432 publicly.
+5. Set `DATABASE-URL` to
+   `postgresql://assistlink:PASSWORD@postgres:5432/assistlink`, using the same
+   password as the VM secret file created below. A password from
+   `openssl rand -hex 32` needs no URL encoding.
 6. Point the application's DNS name at the VM public IP.
 7. In the network security group, expose ports 80 and 443. Restrict port 22 to
    trusted administrator IPs. Do not expose ports 8081 or 5432.
@@ -47,10 +48,28 @@ Clone the repository, then create the non-secret deployment configuration:
 ```bash
 cp .env.production.example .env.production
 chmod +x deploy.sh
+chmod +x deploy/backup-postgres.sh
 ```
 
 Edit `.env.production` with the vault URL, Entra identifiers, domain callback,
-and Gemini model. Never add database passwords, JWT secrets, or API keys there.
+Gemini model, and the path `/etc/assistlink/postgres-password`. Never add database
+passwords, JWT secrets, or API keys there.
+
+Create the password file on the VM. Paste the same hexadecimal password used in
+the Key Vault `DATABASE-URL` value when prompted:
+
+```bash
+sudo install -d -m 700 /etc/assistlink
+read -r -s -p "PostgreSQL password: " ASSISTLINK_DB_PASSWORD
+printf '\n'
+printf '%s' "$ASSISTLINK_DB_PASSWORD" | sudo tee /etc/assistlink/postgres-password >/dev/null
+unset ASSISTLINK_DB_PASSWORD
+sudo chmod 600 /etc/assistlink/postgres-password
+```
+
+The password initializes PostgreSQL only when the `postgres_data` volume is
+empty. Changing the file later does not rotate the password inside an existing
+database.
 
 ## 4. Nginx and TLS
 
@@ -74,12 +93,45 @@ curl --fail https://YOUR_DOMAIN/assistlink/api/health
 ```
 
 `deploy.sh` fast-forwards `main`, builds the image, loads the database URL from
-Key Vault to apply committed Prisma migrations, and replaces the API container.
-The API listens only on VM localhost; public traffic must pass through Nginx.
+Key Vault, starts PostgreSQL, waits for it to become healthy, applies committed
+Prisma migrations, and replaces the API container. A first deployment creates an
+empty database schema; it does not load development seed data. The API listens
+only on VM localhost, and PostgreSQL has no host port, so public traffic must pass
+through Nginx.
 
 For troubleshooting:
 
 ```bash
 docker compose --env-file .env.production -f compose.production.yml ps
 docker compose --env-file .env.production -f compose.production.yml logs --tail=100 api
+docker compose --env-file .env.production -f compose.production.yml logs --tail=100 postgres
 ```
+
+## 6. Bootstrap the first admin
+
+The production database starts without users. Sign in through Microsoft once so
+the application creates your user, then promote only that account from the VM:
+
+```bash
+docker compose --env-file .env.production -f compose.production.yml exec postgres \
+  psql -U assistlink -d assistlink \
+  -c "UPDATE \"User\" SET role = 'ADMIN' WHERE email = 'YOUR_EMAIL';"
+```
+
+The command should report `UPDATE 1`. Sign out and back in, then use the admin UI
+for later role assignments. Do not run the development seed in production unless
+you intentionally want its fake users and postings.
+
+## 7. Backups
+
+The named Docker volume survives container replacement but not VM or disk loss.
+Create a backup after deployment and on a daily schedule:
+
+```bash
+./deploy/backup-postgres.sh
+```
+
+Backups are written under `backups/postgres`, ignored by Git, with mode `0600`.
+Copy every backup to encrypted storage outside the VM and periodically test a
+restore. Never run `docker compose down -v` in production because `-v` deletes
+the PostgreSQL volume.

@@ -5,6 +5,7 @@ node_modules/
 !.env.production.example
 dist/
 *.log
+backups/
 prisma/*.db
 
 /src/generated/prisma
