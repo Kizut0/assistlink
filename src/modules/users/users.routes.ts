@@ -1,13 +1,13 @@
 import { Router } from 'express';
-import { fail } from '../../utils/apiResponse.js';
+import { auth } from '../../middleware/auth.js';
+import { requireRole } from '../../middleware/roles.js';
+import { validate } from '../../middleware/validate.js';
+import { asyncHandler } from '../../utils/asyncHandler.js';
+import { assignRoleSchema } from './users.validator.js';
+import * as controller from './users.controller.js';
 
-// STUB — implemented in a later phase.
-// Planned endpoints:
-//   GET    /users          -> admin: list users
-//   PATCH  /users/:id/role  -> admin: assign role
-//   GET    /users/:id       -> admin: user detail
 const router = Router();
-
-router.use((_req, res) => fail(res, 501, 'users module not implemented yet'));
-
+router.use(auth, requireRole('ADMIN'));
+router.get('/', asyncHandler(controller.list));
+router.patch('/:id/role', validate(assignRoleSchema), asyncHandler(controller.assignRole));
 export default router;
