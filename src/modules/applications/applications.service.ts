@@ -3,6 +3,20 @@ import { ApiError } from '../../utils/ApiError.js';
 import type { AuthUser } from '../../middleware/auth.js';
 import type { DecideApplicationInput } from './applications.validator.js';
 
+export function listMyApplications(userId: number) {
+  return prisma.application.findMany({
+    where: { student: { userId } },
+    select: {
+      id: true,
+      status: true,
+      createdAt: true,
+      postId: true,
+      post: { include: { author: { select: { id: true, name: true } } } },
+    },
+    orderBy: { createdAt: 'desc' },
+  });
+}
+
 // Application.studentId points at Student.id, not User.id, so we need to
 // look up the caller's own Student row from their JWT userId first. If they
 // haven't saved a profile yet, tell them to do that instead of creating one
@@ -40,13 +54,14 @@ const applicantSelect = {
   student: {
     select: {
       id: true,
+      major: true,
       skills: true,
       gpa: true,
       workHoursPerWeek: true,
       resumeUrl: true,
       resumeText: true,
       bio: true,
-      user: { select: { id: true, name: true, email: true } },
+      user: { select: { id: true, name: true, email: true, department: { select: { name: true } } } },
     },
   },
 } as const;
@@ -64,7 +79,10 @@ export async function applyToPost(userId: number, postId: number) {
   if (existing) throw ApiError.conflict('You have already applied to this post');
 
   try {
-    return await prisma.application.create({ data: { postId, studentId } });
+    return await prisma.application.create({
+      data: { postId, studentId },
+      select: { id: true, postId: true, status: true, createdAt: true },
+    });
   } catch (e) {
     // findFirst above catches the normal case; this only fires if two requests
     // land at the same time and both pass the check before either commits.

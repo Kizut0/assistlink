@@ -4,6 +4,10 @@ import { ApiError } from '../../utils/ApiError.js';
 import type { DecideApplicationInput } from './applications.validator.js';
 import * as service from './applications.service.js';
 
+export async function listMine(req: Request, res: Response): Promise<Response> {
+  return ok(res, await service.listMyApplications(req.user!.userId));
+}
+
 function parseId(raw: string | string[] | undefined, label: string): number {
   const id = Number(raw);
   if (!Number.isInteger(id) || id <= 0) {

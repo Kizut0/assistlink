@@ -5,10 +5,28 @@ import type { CreatePostInput, UpdatePostInput } from './posts.validator.js';
 
 const authorSelect = { id: true, name: true, role: true } as const;
 
+// Only the authenticated author's postings; no applicant identities in the dashboard.
+export async function getWorkspace(authorId: number) {
+  const posts = await prisma.post.findMany({
+    where: { authorId },
+    orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+    include: { applications: { select: { status: true } } },
+  });
+  return posts.map(({ applications, ...post }) => ({
+    ...post,
+    applicationCounts: {
+      total: applications.length,
+      pending: applications.filter(a => a.status === 'PENDING').length,
+      accepted: applications.filter(a => a.status === 'ACCEPTED').length,
+      rejected: applications.filter(a => a.status === 'REJECTED').length,
+    },
+  })).sort((a, b) => b.applicationCounts.pending - a.applicationCounts.pending);
+}
+
 // Task 18 — open, non-private postings, newest first.
-export function listPosts() {
+export function listPosts(authorId?: number) {
   return prisma.post.findMany({
-    where: { status: 'OPEN', private: false },
+    where: authorId === undefined ? { status: 'OPEN', private: false } : { authorId },
     orderBy: { createdAt: 'desc' },
     include: { author: { select: authorSelect } },
   });

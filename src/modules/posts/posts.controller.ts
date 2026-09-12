@@ -12,8 +12,12 @@ function parseId(raw: string | string[] | undefined): number {
   return id;
 }
 
-export async function list(_req: Request, res: Response): Promise<Response> {
-  return ok(res, await service.listPosts());
+export async function list(req: Request, res: Response): Promise<Response> {
+  return ok(res, await service.listPosts(req.query.mine === '1' ? req.user!.userId : undefined));
+}
+
+export async function workspace(req: Request, res: Response): Promise<Response> {
+  return ok(res, await service.getWorkspace(req.user!.userId));
 }
 
 export async function getOne(req: Request, res: Response): Promise<Response> {

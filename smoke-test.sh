@@ -23,7 +23,7 @@ PROF='{"userId":'"$PROF_ID"',"role":"PROFESSOR","email":"prof@au.edu"}'
 OTHER_PROF='{"userId":999,"role":"PROFESSOR","email":"other@au.edu"}'
 STUDENT='{"userId":'"$STUDENT_ID"',"role":"STUDENT","email":"stu@au.edu"}'
 # not seeded - a STUDENT with no Student row yet, for the "no profile" apply check
-NEW_STUDENT='{"userId":42,"role":"STUDENT","email":"newstu@au.edu"}'
+NEW_STUDENT='{"userId":9999,"role":"STUDENT","email":"newstu@au.edu"}'
 JSON='Content-Type: application/json'
 
 pass=0; fail=0

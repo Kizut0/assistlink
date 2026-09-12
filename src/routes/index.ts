@@ -24,8 +24,9 @@ router.use('/posts', postsRoutes);
 
 router.use('/applications', applicationsRoutes);
 
-// Stubs (return 501 until their phase lands)
 router.use('/users', usersRoutes);
+
+// Stubs (return 501 until their phase lands)
 router.use('/ranking', rankingRoutes);
 router.use('/events', eventsRoutes);
 router.use('/peer', peerRoutes);

@@ -10,12 +10,15 @@
     "dev": "tsx watch src/server.ts",
     "start": "tsx src/server.ts",
     "seed": "tsx prisma/seed.ts",
+    "seed:test-users": "tsx prisma/seed-test-users.ts",
     "typecheck": "tsc --noEmit",
     "migrate": "prisma migrate dev",
     "migrate:deploy": "prisma migrate deploy",
     "migrate:reset": "prisma migrate reset",
     "generate": "prisma generate",
-    "studio": "prisma studio"
+    "studio": "prisma studio",
+    "test:web": "node --import tsx --test tests/web.test.ts tests/users.test.ts tests/frontend.test.cjs tests/ranking.test.ts tests/profiles.test.ts",
+    "test:users:db": "RUN_DATABASE_TESTS=1 node --import tsx --test tests/users.db.test.ts"
   },
   "repository": {
     "type": "git",
@@ -36,7 +39,6 @@
     "@prisma/client": "^7.9.1",
     "express": "^5.2.1",
     "jsonwebtoken": "^9.0.3",
-    "openai": "^7.5.0",
     "pg": "^8.23.0",
     "zod": "^4.4.3"
   },
