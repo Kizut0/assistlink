@@ -8,8 +8,6 @@ import applicationsRoutes, {
 } from '../modules/applications/applications.routes.js';
 import usersRoutes from '../modules/users/users.routes.js';
 import rankingRoutes from '../modules/ranking/ranking.routes.js';
-import eventsRoutes from '../modules/events/events.routes.js';
-import peerRoutes from '../modules/peer/peer.routes.js';
 
 const router = Router();
 
@@ -26,9 +24,7 @@ router.use('/applications', applicationsRoutes);
 
 router.use('/users', usersRoutes);
 
-// Stubs (return 501 until their phase lands)
+// Legacy compatibility route. Ranking's canonical endpoint is /posts/:id/rank.
 router.use('/ranking', rankingRoutes);
-router.use('/events', eventsRoutes);
-router.use('/peer', peerRoutes);
 
 export default router;

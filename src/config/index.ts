@@ -7,7 +7,6 @@ import 'dotenv/config';
 export const REQUIRED = [
   'DATABASE_URL',
   'JWT_SECRET',
-  'PARTNER_API_KEY',
   'AD_CLIENT_SECRET',
 ] as const;
 
