@@ -58,7 +58,7 @@ GEMINI_MODEL=gemini-3.6-flash
 Other settings are documented in `.env.example`. In production, set
 `AZURE_KEY_VAULT_URL`; startup uses `DefaultAzureCredential` to load
 `DATABASE-URL`, `JWT-SECRET`, `AD-CLIENT-SECRET`, and the optional
-`GEMINI-API-KEY` before initializing the application. Managed identity is
+`GEMINI-API-KEY` and `DEMO-AUTH-PASSCODE` before initializing the application. Managed identity is
 recommended on Azure; service-principal and Azure CLI credentials also work.
 
 ## Roles and sign-in
@@ -82,6 +82,13 @@ curl http://localhost:8081/assistlink/api/posts \
 The default seed uses professor ID 1, admin ID 2, and student ID 3. The bypass is
 disabled when `NODE_ENV=production`.
 
+For a controlled production demonstration, set `DEMO_AUTH_ENABLED=true` and add
+the `DEMO-AUTH-PASSCODE` Key Vault secret. The blank sign-in form then accepts
+the shared passcode with any account created by `npm run seed:demo`: students
+`student1@university.edu` through `student50@university.edu`, all nine seeded
+professor emails, and `admin@university.edu`. The form never displays the
+accounts or stores the passcode.
+
 ## Main API routes
 
 All paths below are relative to `/assistlink/api`.
@@ -91,6 +98,7 @@ All paths below are relative to `/assistlink/api`.
 | `GET` | `/health` | Public | Health check |
 | `GET` | `/auth/login` | Public | Start Microsoft sign-in |
 | `GET` | `/auth/callback` | Public | Complete sign-in |
+| `POST` | `/auth/demo-login` | Demo mode | Sign in a whitelisted seeded account |
 | `GET` | `/auth/me` | Authenticated | Current user |
 | `POST` | `/auth/logout` | Browser session | Clear session |
 | `GET` | `/posts` | Authenticated | List open public posts |
@@ -102,9 +110,13 @@ All paths below are relative to `/assistlink/api`.
 | `PATCH` | `/posts/:id/close` | Owner/Admin | Close a post |
 | `GET` | `/me/profile` | Student | Get own profile |
 | `PUT` | `/me/profile` | Student | Create or update own profile |
+| `POST` | `/me/resume` | Student | Upload and extract a résumé PDF |
+| `GET` | `/me/resume` | Student | Open own résumé PDF |
+| `DELETE` | `/me/resume` | Student | Delete own résumé and extracted text |
 | `GET` | `/me/applications` | Student | Track own applications |
 | `POST` | `/posts/:postId/applications` | Student | Apply to a post |
 | `GET` | `/posts/:postId/applications` | Owner/Admin | Review applicants |
+| `GET` | `/posts/:postId/applications/:applicationId/resume` | Owner/Admin | Open an applicant résumé PDF |
 | `PATCH` | `/applications/:id` | Owner/Admin | Accept or reject an applicant |
 | `POST` | `/posts/:id/rank` | Owner/Admin | Rank applicants with Gemini |
 | `GET` | `/users` | Admin | Search and filter users |
@@ -123,6 +135,7 @@ Responses use `{ "success": true, "data": ... }` or
 | `npm run test:web` | Run API, frontend, auth, profile, and ranking tests |
 | `npm run test:users:db` | Run opt-in PostgreSQL role/concurrency tests |
 | `npm run seed` | Seed demo data |
+| `npm run seed:demo` | Idempotently seed the Azure/local demo dataset |
 | `npm run seed:test-users` | Seed additional student and professor fixtures |
 | `npm run migrate` | Create/apply a development migration |
 | `npm run migrate:deploy` | Apply committed migrations |

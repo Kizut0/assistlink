@@ -28,7 +28,15 @@ export function loadConfig(source: Source): Secrets {
 
 export function buildConfig(source: Source = process.env) {
   const secrets = loadConfig(source);
-  const env = process.env.NODE_ENV ?? 'development';
+  const env = source.NODE_ENV ?? 'development';
+  const demoAuthEnabled = ['1', 'true'].includes((source.DEMO_AUTH_ENABLED ?? '').trim().toLowerCase());
+  const demoAuthPasscode = source.DEMO_AUTH_PASSCODE?.trim();
+  if (demoAuthEnabled && !demoAuthPasscode) {
+    throw new Error('Missing required secret when demo authentication is enabled: DEMO_AUTH_PASSCODE');
+  }
+  if (demoAuthEnabled && demoAuthPasscode!.length < 12) {
+    throw new Error('DEMO_AUTH_PASSCODE must contain at least 12 characters');
+  }
   return {
     env,
     isProduction: env === 'production',
@@ -46,7 +54,12 @@ export function buildConfig(source: Source = process.env) {
     GEMINI_API_KEY: process.env.GEMINI_API_KEY,
     GEMINI_MODEL: process.env.GEMINI_MODEL ?? 'gemini-2.5-flash',
     GEMINI_BASE_URL:
-      process.env.GEMINI_BASE_URL ?? 'https://generativelanguage.googleapis.com/v1beta',
+      source.GEMINI_BASE_URL ?? 'https://generativelanguage.googleapis.com/v1beta',
+
+    demoAuth: {
+      enabled: demoAuthEnabled,
+      passcode: demoAuthPasscode,
+    },
 
     // Public AD identifiers — loaded from env in every environment (Task 05 redline).
     AD_CLIENT_ID: process.env.AD_CLIENT_ID,

@@ -2,7 +2,7 @@ import 'dotenv/config';
 import { PrismaPg } from '@prisma/adapter-pg';
 import { PrismaClient } from '../src/generated/prisma/client.js';
 import { FACULTY_PROGRAMS } from '../src/modules/profiles/academic.js';
-import { DEMO_PROFESSORS, DEMO_STUDENTS } from '../src/modules/profiles/demo-data.js';
+import { DEMO_ADMIN, DEMO_PROFESSORS, DEMO_STUDENTS } from '../src/modules/profiles/demo-data.js';
 
 const adapter = new PrismaPg({ connectionString: process.env.DATABASE_URL });
 const prisma = new PrismaClient({ adapter });
@@ -14,7 +14,7 @@ async function main() {
     const department = await prisma.department.upsert({ where: { name }, update: {}, create: { name } });
     departments.set(name, department);
   }
-  const facultyManagement = departments.get('Martin de Tours School of Management and Economics')!;
+  const facultyManagement = departments.get(DEMO_ADMIN.faculty)!;
   const facultyEngineering = departments.get('Vincent Mary School of Engineering, Science and Technology')!;
 
   // Upsert deterministic development accounts so this script can be rerun.
@@ -26,12 +26,13 @@ async function main() {
       role: 'PROFESSOR', departmentId: facultyEngineering.id,
     },
   });
+  const professors = new Map<string, typeof professor>([['prof-001', professor]]);
 
   const admin = await prisma.user.upsert({
-    where: { adObjectId: 'admin-001' },
-    update: { email: 'admin@university.edu', name: 'Admin User', phone: '555-0002', role: 'ADMIN', departmentId: facultyManagement.id },
+    where: { adObjectId: DEMO_ADMIN.adObjectId },
+    update: { email: DEMO_ADMIN.email, name: DEMO_ADMIN.name, phone: DEMO_ADMIN.phone, role: 'ADMIN', departmentId: facultyManagement.id },
     create: {
-      adObjectId: 'admin-001', email: 'admin@university.edu', name: 'Admin User', phone: '555-0002',
+      adObjectId: DEMO_ADMIN.adObjectId, email: DEMO_ADMIN.email, name: DEMO_ADMIN.name, phone: DEMO_ADMIN.phone,
       role: 'ADMIN', departmentId: facultyManagement.id,
     },
   });
@@ -52,14 +53,24 @@ async function main() {
       where: { userId: user.id },
       update: {
         major: sample.major,
-        resumeUrl: 'resumeUrl' in sample ? sample.resumeUrl : null,
-        resumeText: 'resumeText' in sample ? sample.resumeText : null,
+        resumeUrl: null,
+        resumeText: null,
+        resumePdf: null,
+        resumeFileName: null,
+        resumeMimeType: null,
+        resumeSizeBytes: null,
+        resumeUploadedAt: null,
         gpa: sample.gpa, workHoursPerWeek: sample.workHoursPerWeek, bio: sample.bio, skills: [...sample.skills],
       },
       create: {
         userId: user.id, major: sample.major,
-        resumeUrl: 'resumeUrl' in sample ? sample.resumeUrl : null,
-        resumeText: 'resumeText' in sample ? sample.resumeText : null,
+        resumeUrl: null,
+        resumeText: null,
+        resumePdf: null,
+        resumeFileName: null,
+        resumeMimeType: null,
+        resumeSizeBytes: null,
+        resumeUploadedAt: null,
         gpa: sample.gpa, workHoursPerWeek: sample.workHoursPerWeek, bio: sample.bio, skills: [...sample.skills],
       },
     });
@@ -69,7 +80,7 @@ async function main() {
   // remaining faculty leads after the student fixtures so student IDs stay
   // contiguous in a fresh seeded database.
   for (const sample of DEMO_PROFESSORS.slice(1)) {
-    await prisma.user.upsert({
+    const facultyProfessor = await prisma.user.upsert({
       where: { adObjectId: sample.adObjectId },
       update: { email: sample.email, name: sample.name, phone: sample.phone, role: 'PROFESSOR', departmentId: departments.get(sample.faculty)!.id },
       create: {
@@ -77,6 +88,7 @@ async function main() {
         role: 'PROFESSOR', departmentId: departments.get(sample.faculty)!.id,
       },
     });
+    professors.set(sample.adObjectId, facultyProfessor);
   }
 
   async function seedPost(data: {
@@ -87,16 +99,48 @@ async function main() {
       ? prisma.post.update({ where: { id: existing.id }, data: { ...data, status: 'OPEN', private: false } })
       : prisma.post.create({ data: { ...data, status: 'OPEN', private: false } });
   }
-  const post1 = await seedPost({
-    title: 'Research Assistant Needed - ML Project',
-    details: 'Looking for a motivated student to help with machine learning research on image classification.',
-    jobCategory: 'RA', requiredSkills: ['Python', 'TensorFlow', 'Machine Learning'], authorId: professor.id,
-  });
-  const post2 = await seedPost({
-    title: 'Teaching Assistant Wanted - Data Structures',
-    details: 'Need help grading assignments and leading lab sessions for Data Structures course.',
-    jobCategory: 'TA', requiredSkills: ['Java', 'Data Structures', 'Teaching'], authorId: professor.id,
-  });
+  const seededPosts = await Promise.all([
+    seedPost({
+      title: 'Computer Vision Research Assistant',
+      details: 'Support image-classification experiments, prepare datasets, and document model results for an applied machine-learning study.',
+      jobCategory: 'RA', requiredSkills: ['Python', 'TensorFlow', 'Machine Learning'], authorId: professor.id,
+    }),
+    seedPost({
+      title: 'Data Structures Teaching Assistant',
+      details: 'Help lead lab sessions, answer student questions, and review Java programming assignments for Data Structures.',
+      jobCategory: 'TA', requiredSkills: ['Java', 'Data Structures', 'Teaching'], authorId: professor.id,
+    }),
+    seedPost({
+      title: 'Smart Campus Energy Research Assistant',
+      details: 'Analyze sensor data and prototype dashboards for a study of energy efficiency across university buildings.',
+      jobCategory: 'RA', requiredSkills: ['Python', 'Data Analysis', 'SQL'], authorId: professor.id,
+    }),
+    seedPost({
+      title: 'Sustainable Consumer Research Assistant',
+      details: 'Assist with survey design, market research, and quantitative analysis for a sustainable business behavior project.',
+      jobCategory: 'RA', requiredSkills: ['Research', 'Statistics', 'Excel'], authorId: professors.get('prof-002')!.id,
+    }),
+    seedPost({
+      title: 'Digital Communication Teaching Assistant',
+      details: 'Support workshops on professional writing, presentations, and digital communication for multilingual learners.',
+      jobCategory: 'TA', requiredSkills: ['Writing', 'Presentation', 'English'], authorId: professors.get('prof-003')!.id,
+    }),
+    seedPost({
+      title: 'Sustainable Design Research Assistant',
+      details: 'Document case studies and help evaluate human-centered sustainability strategies in architecture and interior design.',
+      jobCategory: 'RA', requiredSkills: ['Research', 'AutoCAD', 'Sustainability'], authorId: professors.get('prof-005')!.id,
+    }),
+    seedPost({
+      title: 'Food Quality Laboratory Assistant',
+      details: 'Prepare samples, maintain laboratory records, and assist with food quality and shelf-life experiments.',
+      jobCategory: 'RA', requiredSkills: ['Laboratory', 'Food Science', 'Quality Control'], authorId: professors.get('prof-006')!.id,
+    }),
+    seedPost({
+      title: 'Evidence-Based Nursing Research Assistant',
+      details: 'Support literature reviews and structured data collection for a community health research project.',
+      jobCategory: 'RA', requiredSkills: ['Research', 'Patient Care', 'Health Communication'], authorId: professors.get('prof-009')!.id,
+    }),
+  ]);
 
   console.log('✅ Seed data created successfully!');
   console.log(`📚 Faculties: ${departments.size}`);
@@ -104,14 +148,13 @@ async function main() {
   console.log(`🔐 Admin: ${admin.name}`);
   console.log(`👨‍🎓 Students: ${demoUsers.length} profiles across all faculties`);
   console.log(`👩‍🏫 Professors: ${DEMO_PROFESSORS.length} faculty leads`);
-  console.log(`📝 Posts: ${post1.title}, ${post2.title}`);
+  console.log(`📝 Posts: ${seededPosts.length} realistic opportunities (no applications or rankings added)`);
 }
 
-main()
-  .catch((e) => {
-    console.error('❌ Seed failed:', e);
-    process.exit(1);
-  })
-  .finally(async () => {
+export async function runDemoSeed(): Promise<void> {
+  try {
+    await main();
+  } finally {
     await prisma.$disconnect();
-  });
+  }
+}

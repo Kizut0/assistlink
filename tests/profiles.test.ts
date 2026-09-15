@@ -20,7 +20,11 @@ test('student profiles return faculty and major and accept matching updates', as
     major: 'Computer Science',
     skills: ['TypeScript'],
     resumeUrl: null,
-    resumeText: null,
+    resumeText: 'TypeScript project experience',
+    resumeFileName: 'resume.pdf',
+    resumeMimeType: 'application/pdf',
+    resumeSizeBytes: 2048,
+    resumeUploadedAt: new Date('2026-09-15T00:00:00Z'),
     workHoursPerWeek: 10,
     gpa: 3.8,
     bio: 'Builder',
@@ -39,6 +43,11 @@ test('student profiles return faculty and major and accept matching updates', as
   });
   assert.equal(result?.faculty, 'Vincent Mary School of Engineering, Science and Technology');
   assert.equal(result?.major, 'Computer Science');
+  assert.deepEqual(result?.resume, {
+    fileName: 'resume.pdf', mimeType: 'application/pdf', sizeBytes: 2048,
+    uploadedAt: new Date('2026-09-15T00:00:00Z'),
+  });
+  assert.equal('resumePdf' in result!, false);
   assert.deepEqual((updateArgs as { data: unknown }).data, {
     department: { connect: { name: 'Vincent Mary School of Engineering, Science and Technology' } },
   });

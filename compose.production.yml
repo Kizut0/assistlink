@@ -43,6 +43,7 @@ services:
       AD_TENANT_ID: ${AD_TENANT_ID:?Set AD_TENANT_ID}
       AD_REDIRECT_URI: ${AD_REDIRECT_URI:?Set AD_REDIRECT_URI}
       GEMINI_MODEL: ${GEMINI_MODEL:-gemini-2.5-flash}
+      DEMO_AUTH_ENABLED: ${DEMO_AUTH_ENABLED:-false}
     depends_on:
       postgres:
         condition: service_healthy

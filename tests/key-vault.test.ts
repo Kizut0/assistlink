@@ -4,6 +4,7 @@ import {
   loadSecretsFromKeyVault,
   type KeyVaultClient,
 } from '../src/config/keyVault.js';
+import { buildConfig } from '../src/config/index.js';
 
 test('development keeps using local environment values when no vault is configured', async () => {
   const source = { NODE_ENV: 'development', DATABASE_URL: 'local' };
@@ -34,6 +35,7 @@ test('loads required and optional secrets from Key Vault without logging values'
     'JWT-SECRET': 'vault-jwt',
     'AD-CLIENT-SECRET': 'vault-ad',
     'GEMINI-API-KEY': 'vault-gemini',
+    'DEMO-AUTH-PASSCODE': 'vault-demo-passcode',
   };
   let clientUrl = '';
   const client: KeyVaultClient = { getSecret: async name => ({ value: secrets[name] }) };
@@ -44,11 +46,12 @@ test('loads required and optional secrets from Key Vault without logging values'
   });
 
   assert.equal(clientUrl, 'https://assistlink-test.vault.azure.net');
-  assert.deepEqual(new Set(loaded), new Set(['DATABASE_URL', 'JWT_SECRET', 'AD_CLIENT_SECRET', 'GEMINI_API_KEY']));
+  assert.deepEqual(new Set(loaded), new Set(['DATABASE_URL', 'JWT_SECRET', 'AD_CLIENT_SECRET', 'GEMINI_API_KEY', 'DEMO_AUTH_PASSCODE']));
   assert.equal(source.DATABASE_URL, 'postgresql://vault');
   assert.equal(source.JWT_SECRET, 'vault-jwt');
   assert.equal(source.AD_CLIENT_SECRET, 'vault-ad');
   assert.equal(source.GEMINI_API_KEY, 'vault-gemini');
+  assert.equal(source.DEMO_AUTH_PASSCODE, 'vault-demo-passcode');
 });
 
 test('fails startup when a required vault secret is missing', async () => {
@@ -71,13 +74,27 @@ test('an unavailable optional Gemini secret does not block startup', async () =>
   };
   const client: KeyVaultClient = {
     getSecret: async name => {
-      if (name === 'GEMINI-API-KEY') throw new Error('not found');
+      if (name === 'GEMINI-API-KEY' || name === 'DEMO-AUTH-PASSCODE') throw new Error('not found');
       return { value: `value-for-${name}` };
     },
   };
   const loaded = await loadSecretsFromKeyVault(source, () => client);
   assert.deepEqual(new Set(loaded), new Set(['DATABASE_URL', 'JWT_SECRET', 'AD_CLIENT_SECRET']));
   assert.equal(source.GEMINI_API_KEY, undefined);
+});
+
+test('demo authentication requires its passcode only when explicitly enabled', () => {
+  const base = {
+    DATABASE_URL: 'postgresql://test',
+    JWT_SECRET: 'jwt-test-secret',
+    AD_CLIENT_SECRET: 'ad-test-secret',
+  };
+  assert.equal(buildConfig(base).demoAuth.enabled, false);
+  assert.throws(() => buildConfig({ ...base, DEMO_AUTH_ENABLED: 'true' }), /DEMO_AUTH_PASSCODE/);
+  assert.throws(() => buildConfig({ ...base, DEMO_AUTH_ENABLED: 'true', DEMO_AUTH_PASSCODE: 'too-short' }), /at least 12/);
+  const enabled = buildConfig({ ...base, DEMO_AUTH_ENABLED: 'true', DEMO_AUTH_PASSCODE: 'temporary-passcode' });
+  assert.equal(enabled.demoAuth.enabled, true);
+  assert.equal(enabled.demoAuth.passcode, 'temporary-passcode');
 });
 
 test('rejects non-HTTPS vault URLs before creating a client', async () => {

@@ -26,6 +26,13 @@ postApplicationsRoutes.get(
   asyncHandler(controller.listApplicants),
 );
 
+postApplicationsRoutes.get(
+  '/:applicationId/resume',
+  auth,
+  requireRole('PROFESSOR', 'ADMIN'),
+  asyncHandler(controller.getApplicantResume),
+);
+
 export { postApplicationsRoutes };
 
 // Task 25 — top-level /applications/:id, accept or reject.

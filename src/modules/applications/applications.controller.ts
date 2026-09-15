@@ -3,6 +3,7 @@ import { ok } from '../../utils/apiResponse.js';
 import { ApiError } from '../../utils/ApiError.js';
 import type { DecideApplicationInput } from './applications.validator.js';
 import * as service from './applications.service.js';
+import * as resumes from '../profiles/resumes.service.js';
 
 export async function listMine(req: Request, res: Response): Promise<Response> {
   return ok(res, await service.listMyApplications(req.user!.userId));
@@ -27,6 +28,21 @@ export async function apply(req: Request, res: Response): Promise<Response> {
 export async function listApplicants(req: Request, res: Response): Promise<Response> {
   const postId = parseId(req.params.postId, 'post');
   return ok(res, await service.listApplicants(postId, req.user!));
+}
+
+export async function getApplicantResume(req: Request, res: Response): Promise<Response> {
+  const postId = parseId(req.params.postId, 'post');
+  const applicationId = parseId(req.params.applicationId, 'application');
+  const resume = await resumes.getApplicantResume(postId, applicationId, req.user!);
+  const encoded = encodeURIComponent(resume.fileName);
+  res.set({
+    'Content-Type': 'application/pdf',
+    'Content-Length': String(resume.sizeBytes),
+    'Content-Disposition': `inline; filename="resume.pdf"; filename*=UTF-8''${encoded}`,
+    'X-Content-Type-Options': 'nosniff',
+    'Cache-Control': 'private, no-store',
+  });
+  return res.send(Buffer.from(resume.pdf));
 }
 
 // Task 25 — PATCH /applications/:id  (body already validated by validate())

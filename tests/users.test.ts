@@ -6,6 +6,8 @@ import { config } from '../src/config/index.js';
 import { prisma } from '../src/lib/prisma.js';
 import { assignRole } from '../src/modules/users/users.service.js';
 import { getMsal } from '../src/modules/auth/auth.service.js';
+import { __resetDemoLoginRateLimitForTests } from '../src/modules/auth/auth.controller.js';
+import { DEMO_ADMIN, DEMO_PROFESSORS, DEMO_STUDENTS } from '../src/modules/profiles/demo-data.js';
 
 type User = { id: number; name: string; email: string; role: 'ADMIN' | 'PROFESSOR' | 'STUDENT'; createdAt: Date };
 let users: User[];
@@ -132,5 +134,54 @@ test('Microsoft callback keeps assigned roles and defaults only new accounts to 
   } finally {
     msal.acquireTokenByCode = originalAcquire; msal.getAuthCodeUrl = originalUrl;
     config.AD_CLIENT_ID = priorClientId; config.AD_TENANT_ID = priorTenantId;
+  }
+});
+
+test('demo login is gated, limited to seeded accounts, cookie based, and throttled', async () => {
+  const previousEnabled = config.demoAuth.enabled;
+  const previousPasscode = config.demoAuth.passcode;
+  const webHeaders = { 'content-type': 'application/json', 'x-assistlink-request': 'web' };
+  const login = (email: string, passcode: string, headers: Record<string, string> = webHeaders) => fetch(`${base}/auth/demo-login`, {
+    method: 'POST', headers, body: JSON.stringify({ email, passcode }),
+  });
+  try {
+    config.demoAuth.enabled = false;
+    assert.equal((await login('student1@university.edu', 'correct')).status, 404);
+
+    config.demoAuth.enabled = true;
+    config.demoAuth.passcode = 'correct';
+    assert.equal((await login('student1@university.edu', 'correct', { 'content-type': 'application/json' })).status, 403);
+    const seededFixtures = [
+      ...DEMO_STUDENTS.map((user, index) => ({ ...user, id: index + 1, role: 'STUDENT' })),
+      ...DEMO_PROFESSORS.map((user, index) => ({ ...user, id: DEMO_STUDENTS.length + index + 1, role: 'PROFESSOR' })),
+      { ...DEMO_ADMIN, id: DEMO_STUDENTS.length + DEMO_PROFESSORS.length + 1, role: 'ADMIN' },
+    ];
+    const seededUsers = new Map(seededFixtures.map(user => [user.email, user]));
+    prisma.user.findUnique = (async args => seededUsers.get(String(args.where.email)) ?? null) as typeof originals.findUnique;
+
+    __resetDemoLoginRateLimitForTests();
+    assert.equal((await login('other@university.edu', 'correct')).status, 401);
+    const success = await login('STUDENT1@UNIVERSITY.EDU', 'correct');
+    assert.equal(success.status, 200);
+    assert.match(success.headers.get('set-cookie')!, /assistlink_session=/);
+    assert.match(success.headers.get('set-cookie')!, /HttpOnly/);
+    assert.equal((await success.json()).data.user.email, 'student1@university.edu');
+    for (const user of seededFixtures) {
+      const seededLogin = await login(user.email, 'correct');
+      assert.equal(seededLogin.status, 200, user.email);
+      const responseUser = (await seededLogin.json()).data.user;
+      assert.equal(responseUser.email, user.email);
+      assert.equal(responseUser.role, user.role);
+    }
+
+    __resetDemoLoginRateLimitForTests();
+    for (let attempt = 0; attempt < 5; attempt += 1) {
+      assert.equal((await login('student1@university.edu', 'wrong')).status, 401);
+    }
+    assert.equal((await login('student1@university.edu', 'correct')).status, 429);
+  } finally {
+    config.demoAuth.enabled = previousEnabled;
+    config.demoAuth.passcode = previousPasscode;
+    __resetDemoLoginRateLimitForTests();
   }
 });

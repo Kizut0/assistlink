@@ -1,18 +1,21 @@
 import { FACULTY_NAMES, FACULTY_PROGRAMS } from './academic.js';
 
+export const DEMO_ADMIN = {
+  adObjectId: 'admin-001', email: 'admin@university.edu', name: 'Admin User', phone: '555-0002',
+  faculty: 'Martin de Tours School of Management and Economics',
+} as const;
+
 const BASE_DEMO_STUDENTS = [
   {
     adObjectId: 'student-001', email: 'student1@university.edu', name: 'Alice Johnson', phone: '555-0003',
     faculty: 'Vincent Mary School of Engineering, Science and Technology', major: 'Computer Science',
-    gpa: 3.8, workHoursPerWeek: 10, resumeUrl: 'https://example.com/resume1.pdf',
-    resumeText: 'Experienced developer with 2 years of internship', bio: 'Passionate about machine learning',
+    gpa: 3.8, workHoursPerWeek: 10, bio: 'Passionate about machine learning and responsible AI.',
     skills: ['Python', 'JavaScript', 'React', 'PostgreSQL'],
   },
   {
     adObjectId: 'student-002', email: 'student2@university.edu', name: 'Bob Williams', phone: '555-0004',
     faculty: 'Martin de Tours School of Management and Economics', major: 'Business Administration',
-    gpa: 3.5, workHoursPerWeek: 15, resumeUrl: 'https://example.com/resume2.pdf',
-    resumeText: 'Full-stack developer with DevOps experience', bio: 'Interested in system design and cloud architecture',
+    gpa: 3.5, workHoursPerWeek: 15, bio: 'Interested in system design and cloud architecture.',
     skills: ['Java', 'C++', 'AWS', 'Docker', 'Kubernetes'],
   },
   {

@@ -9,6 +9,10 @@ const profileSelect = {
   skills: true,
   resumeUrl: true,
   resumeText: true,
+  resumeFileName: true,
+  resumeMimeType: true,
+  resumeSizeBytes: true,
+  resumeUploadedAt: true,
   workHoursPerWeek: true,
   gpa: true,
   bio: true,
@@ -21,6 +25,10 @@ function presentProfile(profile: {
   skills: string[];
   resumeUrl: string | null;
   resumeText: string | null;
+  resumeFileName: string | null;
+  resumeMimeType: string | null;
+  resumeSizeBytes: number | null;
+  resumeUploadedAt: Date | null;
   workHoursPerWeek: number | null;
   gpa: number | null;
   bio: string | null;
@@ -28,7 +36,14 @@ function presentProfile(profile: {
 } | null) {
   if (!profile) return null;
   const { user, ...fields } = profile;
-  return { ...fields, faculty: user.department?.name ?? null };
+  const { resumeFileName, resumeMimeType, resumeSizeBytes, resumeUploadedAt, ...profileFields } = fields;
+  return {
+    ...profileFields,
+    faculty: user.department?.name ?? null,
+    resume: resumeFileName && resumeSizeBytes !== null && resumeUploadedAt
+      ? { fileName: resumeFileName, mimeType: resumeMimeType ?? 'application/pdf', sizeBytes: resumeSizeBytes, uploadedAt: resumeUploadedAt }
+      : null,
+  };
 }
 
 // GET /me/profile: read-only. Returns null if the student hasn't saved a

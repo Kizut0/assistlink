@@ -17,6 +17,7 @@ export const REQUIRED_KEY_VAULT_SECRETS = {
 
 export const OPTIONAL_KEY_VAULT_SECRETS = {
   GEMINI_API_KEY: 'GEMINI-API-KEY',
+  DEMO_AUTH_PASSCODE: 'DEMO-AUTH-PASSCODE',
 } as const;
 
 function createClient(vaultUrl: string): KeyVaultClient {
@@ -56,8 +57,8 @@ async function readOptionalSecrets(client: KeyVaultClient) {
       const value = (await client.getSecret(vaultName)).value?.trim();
       if (value) loaded.push([environmentName, value]);
     } catch {
-      // Ranking is optional; a missing or inaccessible Gemini key must not stop
-      // the rest of the application after required secrets loaded successfully.
+      // Optional features validate their own requirements after the required
+      // service secrets have loaded successfully.
     }
   }
   return loaded;

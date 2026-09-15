@@ -133,3 +133,37 @@ test('permission failures reconcile the current role and discard the restricted 
   assert.equal(await vm.runInContext('recoverAccess({status:403})', h.context), true);
   assert.equal(vm.runInContext('state.view', h.context), 'opportunities');
 });
+
+test('demo sign-in is a blank credential form and never lists seeded accounts', () => {
+  const h = harness('STUDENT');
+  vm.runInContext('state.demoAuthEnabled = true; signIn();', h.context);
+  const html = h.element('#dialog-content').innerHTML;
+  assert.match(html, /name="email"/);
+  assert.match(html, /name="passcode"/);
+  assert.match(html, /Continue with Microsoft/);
+  assert.doesNotMatch(html, /Alice Johnson|Jane Smith|student1@university\.edu|prof@university\.edu|Database user ID/);
+});
+
+test('student profile shows uploaded résumé metadata and extracted text without editable URL fields', () => {
+  const h = harness('STUDENT');
+  vm.runInContext(`renderProfile({id:3,resume:{fileName:'Alice Resume.pdf',sizeBytes:2048,uploadedAt:'2026-09-15T00:00:00Z'},resumeText:'Python and TensorFlow research experience.'})`, h.context);
+  const html = h.element('#main').innerHTML;
+  assert.match(html, /Alice Resume\.pdf/);
+  assert.match(html, /Extracted résumé text/);
+  assert.match(html, /\/assistlink\/api\/me\/resume/);
+  assert.doesNotMatch(html, /name="resumeUrl"|name="resumeText"/);
+});
+
+test('invalid demo credentials keep the sign-in dialog open and show the generic server error', async () => {
+  const h = harness('STUDENT');
+  const form = h.element('#demo-login-form');
+  const submit = { disabled: false };
+  const error = { textContent: '' };
+  form.id = 'demo-login-form';
+  form.values = { email: 'unknown@example.test', passcode: 'wrong' };
+  form.querySelector = selector => selector === '[type=submit]' ? submit : error;
+  h.context.fetch = async () => ({ ok: false, status: 401, json: async () => ({ error: { message: 'Invalid email or passcode' } }) });
+  await h.documentEvents.submit({ target: form, preventDefault() {} });
+  assert.equal(error.textContent, 'Invalid email or passcode');
+  assert.equal(h.element('#dialog').open, true);
+});

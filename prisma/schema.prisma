@@ -63,6 +63,11 @@ model Student {
   gpa              Float?
   resumeUrl        String?
   resumeText       String?
+  resumePdf        Bytes?
+  resumeFileName   String?
+  resumeMimeType   String?
+  resumeSizeBytes  Int?
+  resumeUploadedAt DateTime?
   bio              String?
   skills           String[]
   applications     Application[]

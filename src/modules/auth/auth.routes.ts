@@ -4,13 +4,19 @@ import { auth } from '../../middleware/auth.js';
 import * as controller from './auth.controller.js';
 import { config } from '../../config/index.js';
 import { ok } from '../../utils/apiResponse.js';
+import { validate } from '../../middleware/validate.js';
+import { demoLoginSchema } from './auth.validator.js';
 
 const router = Router();
-router.get('/options', (_req, res) => ok(res, { development: !config.isProduction }));
+router.get('/options', (_req, res) => ok(res, {
+  development: !config.isProduction,
+  demoAuthEnabled: config.demoAuth.enabled,
+}));
 
 // Public — the Microsoft AD sign-in flow.
 router.get('/login', asyncHandler(controller.login));
 router.get('/callback', asyncHandler(controller.callback));
+router.post('/demo-login', validate(demoLoginSchema), asyncHandler(controller.demoLogin));
 router.post('/logout', asyncHandler(controller.logout));
 
 // Protected — confirms auth works end to end.

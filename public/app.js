@@ -14,7 +14,7 @@ const FACULTY_PROGRAMS = {
 };
 const facultyNames = Object.keys(FACULTY_PROGRAMS);
 const majorsFor = faculty => faculty && FACULTY_PROGRAMS[faculty] ? FACULTY_PROGRAMS[faculty] : [];
-const state = { user: null, view: 'opportunities', posts: [], applications: [], category: 'ALL', search: '', development: false, revision: 0, users: [], userQuery: '', userRole: '', userPage: 1, userPagination: null };
+const state = { user: null, view: 'opportunities', posts: [], applications: [], category: 'ALL', search: '', development: false, demoAuthEnabled: false, revision: 0, users: [], userQuery: '', userRole: '', userPage: 1, userPagination: null };
 let devUser;
 try { devUser = JSON.parse(sessionStorage.getItem('assistlink_dev') || 'null'); } catch { sessionStorage.removeItem('assistlink_dev'); }
 let noticeTimer;
@@ -28,14 +28,17 @@ let lastRoleChange = '';
 const homeView = () => state.user?.role === 'ADMIN' ? 'users' : state.user?.role === 'PROFESSOR' ? 'manage' : 'opportunities';
 function notify(message) { $('#notice').textContent = message; $('#notice').hidden = false; clearTimeout(noticeTimer); noticeTimer = setTimeout(() => $('#notice').hidden = true, 6000); }
 async function api(path, method = 'GET', body) {
-  const headers = { 'Content-Type': 'application/json', 'x-assistlink-request': 'web' };
+  const isFormData = body instanceof FormData;
+  const headers = { 'x-assistlink-request': 'web' };
+  if (!isFormData) headers['Content-Type'] = 'application/json';
   if (devUser && state.development) headers['x-dev-user'] = JSON.stringify(devUser);
   let response;
-  try { response = await fetch(`/assistlink/api${path}`, { method, headers, credentials: 'same-origin', body: body === undefined ? undefined : JSON.stringify(body) }); }
+  try { response = await fetch(`/assistlink/api${path}`, { method, headers, credentials: 'same-origin', body: body === undefined ? undefined : isFormData ? body : JSON.stringify(body) }); }
   catch { throw new Error('Cannot connect to AssistLink. Check your connection and try again.'); }
   const result = await response.json().catch(() => null);
   if (!response.ok) {
-    const error = new Error(response.status === 401 ? 'Please sign in to continue.' : result?.error?.message || 'Something went wrong. Please try again.');
+    const sessionExpired = response.status === 401 && path !== '/auth/demo-login';
+    const error = new Error(sessionExpired ? 'Please sign in to continue.' : result?.error?.message || 'Something went wrong. Please try again.');
     error.status = response.status;
     throw error;
   }
@@ -187,7 +190,8 @@ function renderCards() {
 }
 function openDialog(title, content) { $('#dialog-content').innerHTML = `<div class="dialog-heading"><h2 id="dialog-title">${title}</h2><button class="close" aria-label="Close dialog" data-action="close">×</button></div>${content}`; if (!$('#dialog').open) $('#dialog').showModal(); }
 function signIn() {
-  openDialog('Welcome to AssistLink', '<p class="muted">Use your university Microsoft account to access your campus workspace.</p><a class="button primary" href="/assistlink/api/auth/login?web=1">Continue with Microsoft ↗</a>' + (state.development ? '<details><summary>Local development access</summary><p class="muted">Use an existing seeded user. This option is disabled in production.</p><form id="dev-form"><div class="field"><label for="dev-role">Role</label><select id="dev-role" name="role"><option value="STUDENT">Student</option><option value="PROFESSOR">Professor</option><option value="ADMIN">Admin</option></select></div><div class="field"><label for="dev-id">Database user ID</label><input id="dev-id" name="userId" type="number" min="1" step="1" value="3" required></div><button class="button" type="submit">Open local workspace</button><p class="form-error" role="alert"></p></form></details>' : ''));
+  const demoForm = state.demoAuthEnabled ? '<form id="demo-login-form" class="demo-login-form"><div class="field"><label for="demo-email">Email</label><input id="demo-email" name="email" type="email" autocomplete="username" required maxlength="320"></div><div class="field"><label for="demo-passcode">Passcode</label><input id="demo-passcode" name="passcode" type="password" autocomplete="current-password" required maxlength="256"></div><p class="form-error" role="alert"></p><button class="button primary" type="submit">Sign in</button></form><div class="signin-divider"><span>or</span></div>' : '';
+  openDialog('Welcome to AssistLink', demoForm + '<p class="muted">Use your university Microsoft account to access your campus workspace.</p><a class="button" href="/assistlink/api/auth/login?web=1">Continue with Microsoft ↗</a>');
 }
 async function showPost(id) {
   openDialog('Opportunity', '<p role="status">Loading opportunity…</p><p class="form-error" id="dialog-error" role="alert"></p>');
@@ -204,9 +208,13 @@ function renderProfile(p, justSaved = false) {
   profileSaving = false;
   const faculty = p.faculty || '';
   const majors = majorsFor(faculty);
-  $('#main').innerHTML = heading('Let your skills speak.', 'Build your student profile before applying to an opportunity.') + `<form id="profile-form" class="panel"><div class="section-heading"><h2>Student profile</h2><span class="role-badge">Student</span></div><p id="profile-status" class="feedback ${profileExists ? 'saved' : 'unsaved'}" role="status">${profileExists ? (justSaved ? '✓ Profile saved successfully. Your changes are stored.' : '✓ Saved profile · You are viewing your stored information.') : 'Profile not saved yet. Add your details and select Save profile.'}</p><div class="form-grid">${selectField('Faculty','faculty',facultyNames,faculty,'Choose your faculty')}${selectField('Major','major',majors,p.major || '','Choose your major',!faculty)}</div>${area('About you','bio',p.bio,'maxlength="2000"')}${field('Skills, separated by commas','skills',(p.skills || []).join(', '))}<div class="form-grid">${field('GPA (0–4)','gpa',p.gpa,'number','min="0" max="4" step="0.01"')}${field('Available hours per week','workHoursPerWeek',p.workHoursPerWeek,'number','min="0" max="80" step="1"')}</div>${field('Résumé link','resumeUrl',p.resumeUrl,'url')}${area('Résumé text','resumeText',p.resumeText,'maxlength="20000"')}<p class="form-error" role="alert"></p><div class="save-bar"><span id="save-hint">${profileExists ? 'All changes saved' : 'Your profile has not been saved'}</span><button id="save-profile" class="button primary" type="submit" ${profileExists ? 'disabled' : ''}>${profileExists ? 'Saved' : 'Save profile'}</button></div></form>`;
+  const resumePanel = p.resume
+    ? `<section class="panel resume-panel"><div class="section-heading"><div><h2>Résumé PDF</h2><p class="muted">Used as supporting evidence when professors rank applicants.</p></div><span class="role-badge">Uploaded</span></div><div class="resume-file"><div><strong>${escapeHtml(p.resume.fileName)}</strong><span>${formatBytes(p.resume.sizeBytes)} · Uploaded ${date(p.resume.uploadedAt)}</span></div><div class="actions"><a class="button" href="/assistlink/api/me/resume" target="_blank" rel="noopener">View PDF ↗</a><button class="button danger" data-action="delete-resume">Delete</button></div></div>${p.resumeText ? `<details><summary>Extracted résumé text</summary><p class="preserve resume-preview">${escapeHtml(p.resumeText)}</p></details>` : ''}<form id="resume-form" enctype="multipart/form-data"><div class="field"><label for="resume">Replace résumé</label><input id="resume" name="resume" type="file" accept="application/pdf,.pdf" required><small>Text-based PDF, maximum 5 MB and 10 pages.</small></div><p class="form-error" role="alert"></p><button class="button primary" type="submit">Upload replacement</button></form></section>`
+    : `<section class="panel resume-panel"><div class="section-heading"><div><h2>Résumé PDF</h2><p class="muted">Upload a résumé so professors can review your experience and use it during ranking.</p></div></div><form id="resume-form" enctype="multipart/form-data"><div class="field"><label for="resume">Choose résumé PDF</label><input id="resume" name="resume" type="file" accept="application/pdf,.pdf" required ${profileExists ? '' : 'disabled'}><small>${profileExists ? 'Text-based PDF, maximum 5 MB and 10 pages.' : 'Save your student profile before uploading a résumé.'}</small></div><p class="form-error" role="alert"></p><button class="button primary" type="submit" ${profileExists ? '' : 'disabled'}>Upload résumé</button></form></section>`;
+  $('#main').innerHTML = heading('Let your skills speak.', 'Build your student profile before applying to an opportunity.') + `<div class="profile-stack"><form id="profile-form" class="panel"><div class="section-heading"><h2>Student profile</h2><span class="role-badge">Student</span></div><p id="profile-status" class="feedback ${profileExists ? 'saved' : 'unsaved'}" role="status">${profileExists ? (justSaved ? '✓ Profile saved successfully. Your changes are stored.' : '✓ Saved profile · You are viewing your stored information.') : 'Profile not saved yet. Add your details and select Save profile.'}</p><div class="form-grid">${selectField('Faculty','faculty',facultyNames,faculty,'Choose your faculty')}${selectField('Major','major',majors,p.major || '','Choose your major',!faculty)}</div>${area('About you','bio',p.bio,'maxlength="2000"')}${field('Skills, separated by commas','skills',(p.skills || []).join(', '))}<div class="form-grid">${field('GPA (0–4)','gpa',p.gpa,'number','min="0" max="4" step="0.01"')}${field('Available hours per week','workHoursPerWeek',p.workHoursPerWeek,'number','min="0" max="80" step="1"')}</div><p class="form-error" role="alert"></p><div class="save-bar"><span id="save-hint">${profileExists ? 'All changes saved' : 'Your profile has not been saved'}</span><button id="save-profile" class="button primary" type="submit" ${profileExists ? 'disabled' : ''}>${profileExists ? 'Saved' : 'Save profile'}</button></div></form>${resumePanel}</div>`;
   profileBaseline = profileFingerprint();
 }
+function formatBytes(bytes) { return bytes < 1024 * 1024 ? `${Math.max(1, Math.round(bytes / 1024))} KB` : `${(bytes / (1024 * 1024)).toFixed(1)} MB`; }
 function profileFingerprint() {
   const form = $('#profile-form');
   return form ? JSON.stringify(Object.fromEntries(new FormData(form))) : '';
@@ -236,7 +244,7 @@ async function applicants(id, feedback = '') {
   if (!$('#dialog').open) return;
   const rankedAt = list.some(a => a.aiScore != null);
   const rankingAction = (feedback ? `<p class="feedback saved" role="status">✓ ${escapeHtml(feedback)}</p>` : '') + (list.length ? `<div class="rank-action"><button class="button primary" data-rank="${id}">${rankedAt ? 'Re-rank applicants' : 'Rank applicants with Gemini'}</button><span class="muted">AI scores are a review aid; decisions remain yours.</span></div>` : '');
-  openDialog('Review applicants', rankingAction + (list.length ? list.map(a => `<article class="applicant"><div class="applicant-heading"><div><h3>${escapeHtml(a.student.user.name)}</h3><p class="author">${escapeHtml(a.student.user.email)} · ${escapeHtml(a.status)}</p><p class="author">${escapeHtml(a.student.user.department?.name || 'Faculty not provided')} · ${escapeHtml(a.student.major || 'Major not provided')}</p></div><div class="score">${a.aiScore != null ? `<strong>${escapeHtml(a.aiScore)}/100</strong><span>AI match score</span>` : '<span>Not ranked</span>'}</div></div><p class="preserve">${escapeHtml(a.student.bio)}</p>${tags(a.student.skills)}<p>GPA: ${a.student.gpa ?? 'Not provided'} · Hours/week: ${a.student.workHoursPerWeek ?? 'Not provided'}</p>${safeResume(a.student.resumeUrl)}${a.student.resumeText ? `<details><summary>Résumé text</summary><p class="preserve">${escapeHtml(a.student.resumeText)}</p></details>` : ''}${a.aiRationale ? `<p class="ai-rationale"><strong>Why this score:</strong> ${escapeHtml(a.aiRationale)}</p>` : ''}<div class="actions">${['ACCEPTED','REJECTED'].map(status => `<button class="button ${status === 'ACCEPTED' ? 'primary' : ''}" data-decision="${a.id}" data-status="${status}" data-parent="${id}" ${a.status === status ? 'disabled' : ''}>${status === 'ACCEPTED' ? 'Accept' : 'Reject'}</button>`).join('')}</div></article>`).join('') : '<p class="muted">No applications yet. Applicants will appear here after they apply.</p>') + '<p class="form-error" id="dialog-error" role="alert"></p>');
+  openDialog('Review applicants', rankingAction + (list.length ? list.map(a => `<article class="applicant"><div class="applicant-heading"><div><h3>${escapeHtml(a.student.user.name)}</h3><p class="author">${escapeHtml(a.student.user.email)} · ${escapeHtml(a.status)}</p><p class="author">${escapeHtml(a.student.user.department?.name || 'Faculty not provided')} · ${escapeHtml(a.student.major || 'Major not provided')}</p></div><div class="score">${a.aiScore != null ? `<strong>${escapeHtml(a.aiScore)}/100</strong><span>AI match score</span>` : '<span>Not ranked</span>'}</div></div><p class="preserve">${escapeHtml(a.student.bio)}</p>${tags(a.student.skills)}<p>GPA: ${a.student.gpa ?? 'Not provided'} · Hours/week: ${a.student.workHoursPerWeek ?? 'Not provided'}</p>${a.student.resumeFileName ? `<p><a href="/assistlink/api/posts/${id}/applications/${a.id}/resume" target="_blank" rel="noopener">View résumé PDF ↗</a> <span class="muted">${escapeHtml(a.student.resumeFileName)} · ${formatBytes(a.student.resumeSizeBytes)}</span></p>` : safeResume(a.student.resumeUrl)}${a.student.resumeText ? `<details><summary>Extracted résumé text</summary><p class="preserve resume-preview">${escapeHtml(a.student.resumeText)}</p></details>` : ''}${a.aiRationale ? `<p class="ai-rationale"><strong>Why this score:</strong> ${escapeHtml(a.aiRationale)}</p>` : ''}<div class="actions">${['ACCEPTED','REJECTED'].map(status => `<button class="button ${status === 'ACCEPTED' ? 'primary' : ''}" data-decision="${a.id}" data-status="${status}" data-parent="${id}" ${a.status === status ? 'disabled' : ''}>${status === 'ACCEPTED' ? 'Accept' : 'Reject'}</button>`).join('')}</div></article>`).join('') : '<p class="muted">No applications yet. Applicants will appear here after they apply.</p>') + '<p class="form-error" id="dialog-error" role="alert"></p>');
 }
 function safeResume(url) { try { const parsed = new URL(url); return ['https:','http:'].includes(parsed.protocol) ? `<p><a href="${escapeHtml(parsed.href)}" target="_blank" rel="noopener noreferrer">View résumé ↗</a></p>` : ''; } catch { return ''; } }
 const splitSkills = value => [...new Set(value.split(',').map(s => s.trim()).filter(Boolean))];
@@ -249,7 +257,7 @@ document.addEventListener('change', event => {
   if (event.target.dataset.roleSelect) { const id = Number(event.target.dataset.roleSelect); const user = state.users.find(user => user.id === id); $(`[data-save-role="${id}"]`).disabled = event.target.value === user.role; }
   if (event.target.id === 'faculty') { const major = $('#major'); if (major) { major.innerHTML = `<option value="">Choose your major</option>${majorsFor(event.target.value).map(option => `<option value="${escapeHtml(option)}">${escapeHtml(option)}</option>`).join('')}`; major.disabled = !event.target.value; } }
   if (event.target.closest('#profile-form')) updateProfileStatus();
-  if (event.target.id === 'dev-role') $('#dev-id').value = event.target.value === 'STUDENT' ? 3 : event.target.value === 'PROFESSOR' ? 1 : 2; });
+});
 document.addEventListener('click', async event => {
   const button = event.target.closest('button'); if (!button) return;
   try {
@@ -271,6 +279,7 @@ document.addEventListener('click', async event => {
     else if (button.dataset.confirmClose) { button.disabled = true; await api(`/posts/${button.dataset.confirmClose}/close`, 'PATCH', {}); $('#dialog').close(); notify('Posting closed.'); await navigate(state.view); }
     else if (button.dataset.decision) { button.disabled = true; await api(`/applications/${button.dataset.decision}`, 'PATCH', { status: button.dataset.status }); await applicants(Number(button.dataset.parent), 'Decision saved: ' + (button.dataset.status === 'ACCEPTED' ? 'applicant accepted.' : 'applicant rejected.')); await refreshStaff(); }
     else if (button.dataset.action === 'signin') signIn();
+    else if (button.dataset.action === 'delete-resume') { if (!window.confirm('Delete your uploaded résumé and extracted text?')) return; button.disabled = true; await api('/me/resume', 'DELETE'); await navigate('profile'); notify('Résumé deleted.'); }
     else if (button.dataset.action === 'close') $('#dialog').close();
     else if (button.dataset.action === 'create') postForm();
     else if (button.dataset.action === 'retry') await navigate(state.view);
@@ -300,7 +309,7 @@ document.addEventListener('submit', async event => {
       submit.textContent = 'Saving…';
       form.querySelectorAll('input, select, textarea').forEach(input => input.disabled = true);
       try {
-        const saved = await api('/me/profile','PUT', { ...values, faculty: values.faculty || null, major: values.major || null, skills: splitSkills(values.skills), gpa: values.gpa === '' ? null : Number(values.gpa), workHoursPerWeek: values.workHoursPerWeek === '' ? null : Number(values.workHoursPerWeek), resumeUrl: values.resumeUrl || null });
+        const saved = await api('/me/profile','PUT', { ...values, faculty: values.faculty || null, major: values.major || null, skills: splitSkills(values.skills), gpa: values.gpa === '' ? null : Number(values.gpa), workHoursPerWeek: values.workHoursPerWeek === '' ? null : Number(values.workHoursPerWeek) });
         if (revision === state.revision) { renderProfile(saved, true); notify('Profile saved successfully.'); }
       } catch (error) {
         if (revision === state.revision) {
@@ -315,12 +324,25 @@ document.addEventListener('submit', async event => {
         throw error;
       } finally { profileSaving = false; }
     }
+    if (form.id === 'resume-form') {
+      submit.textContent = 'Uploading and reading PDF…';
+      form.querySelectorAll('input, button').forEach(control => { control.disabled = true; });
+      try {
+        await api('/me/resume', 'POST', new FormData(form));
+        await navigate('profile');
+        notify('Résumé uploaded and text extracted successfully.');
+      } catch (error) {
+        form.querySelectorAll('input, button').forEach(control => { control.disabled = false; });
+        submit.textContent = 'Retry upload';
+        throw error;
+      }
+    }
     if (form.id === 'post-form') { const id = form.dataset.id; await api(`/posts${id ? '/' + id : ''}`, id ? 'PATCH' : 'POST', { ...values, private: values.private === 'on', requiredSkills: splitSkills(values.requiredSkills) }); $('#dialog').close(); notify(id ? 'Posting updated.' : 'Opportunity published.'); await navigate('manage'); }
-    if (form.id === 'dev-form') { devUser = { userId: Number(values.userId), role: values.role }; state.user = await api('/auth/me'); sessionStorage.setItem('assistlink_dev', JSON.stringify(devUser)); $('#dialog').close(); await navigate(homeView()); }
-  } catch (error) { if (await recoverAccess(error).catch(() => false)) return; form.querySelector('.form-error').textContent = error.message; }
+    if (form.id === 'demo-login-form') { const result = await api('/auth/demo-login', 'POST', { email: values.email, passcode: values.passcode }); state.user = result.user; $('#dialog').close(); await navigate(homeView()); }
+  } catch (error) { if (form.id !== 'demo-login-form' && await recoverAccess(error).catch(() => false)) return; form.querySelector('.form-error').textContent = error.message; }
   finally { submit.disabled = false; }
 });
 (async function start() {
-  try { state.development = (await api('/auth/options')).development; } catch { state.user = null; }
+  try { const options = await api('/auth/options'); state.development = options.development; state.demoAuthEnabled = options.demoAuthEnabled; } catch { state.user = null; }
   await navigate('home');
 })();

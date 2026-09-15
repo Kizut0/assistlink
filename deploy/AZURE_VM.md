@@ -11,7 +11,8 @@ location, and deployment script. Complete the Azure and host setup below once.
    role. It needs read access only.
 4. Add these Key Vault secrets with the exact names:
    `DATABASE-URL`, `JWT-SECRET`, `AD-CLIENT-SECRET`, and optionally
-   `GEMINI-API-KEY`.
+   `GEMINI-API-KEY`. For temporary demo login, also add
+   `DEMO-AUTH-PASSCODE` with a strong shared passcode.
 5. Set `DATABASE-URL` to
    `postgresql://assistlink:PASSWORD@postgres:5432/assistlink`, using the same
    password as the VM secret file created below. A password from
@@ -98,6 +99,41 @@ Prisma migrations, and replaces the API container. A first deployment creates an
 empty database schema; it does not load development seed data. The API listens
 only on VM localhost, and PostgreSQL has no host port, so public traffic must pass
 through Nginx.
+
+### Demo data and test sign-in
+
+For the recorded demonstration, set `DEMO_AUTH_ENABLED=true` in
+`.env.production`, deploy, and seed through the same managed-identity/Key Vault
+bootstrap used by the API:
+
+```bash
+docker compose --env-file .env.production -f compose.production.yml run --rm --no-deps api npm run seed:demo
+```
+
+The blank demo form accepts the shared Key Vault passcode for every account
+created by the demo seed: `student1@university.edu` through
+`student50@university.edu`, all nine professor emails, and
+`admin@university.edu`. It rejects accounts that are present in the database but
+are not part of the seed. Seeding is idempotent and does not create applications,
+so the student-to-professor workflow starts clean.
+
+The professor demo emails are:
+
+- `prof@university.edu`
+- `prof.management@university.edu`
+- `prof.arts@university.edu`
+- `prof.communication@university.edu`
+- `prof.architecture@university.edu`
+- `prof.food@university.edu`
+- `prof.law@university.edu`
+- `prof.music@university.edu`
+- `prof.nursing@university.edu`
+
+Every account above uses the same `DEMO-AUTH-PASSCODE` value. The application
+does not display the account list or passcode.
+
+After recording, set `DEMO_AUTH_ENABLED=false`, redeploy, and remove
+`DEMO-AUTH-PASSCODE` from Key Vault unless evaluators still need access.
 
 For troubleshooting:
 
