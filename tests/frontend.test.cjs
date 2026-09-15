@@ -102,6 +102,17 @@ test('professor posting filters show pending work and clear empty states', () =>
   assert.match(h.element('#staff-posts').innerHTML, /No matching postings/);
 });
 
+test('opportunity board and posting form expose all supported opportunity types', () => {
+  const h = harness('PROFESSOR');
+  vm.runInContext("state.view = 'opportunities'; renderBoard(); postForm({jobCategory:'LAB_ASSISTANT'});", h.context);
+  const board = h.element('#main').innerHTML;
+  const form = h.element('#dialog-content').innerHTML;
+  for (const label of ['Research', 'Teaching', 'Internship', 'Projects', 'Laboratory', 'Peer tutoring']) assert.match(board, new RegExp(label));
+  for (const value of ['RA', 'TA', 'INTERNSHIP', 'PROJECT_ASSISTANT', 'LAB_ASSISTANT', 'PEER_TUTOR']) assert.match(form, new RegExp(`value="${value}"`));
+  assert.match(form, /value="LAB_ASSISTANT" selected/);
+  assert.match(vm.runInContext("badge({jobCategory:'PEER_TUTOR'})", h.context), /PEER TUTOR/);
+});
+
 test('profile save failure preserves edits and retry success clears the unsaved state', async () => {
   const h = harness('STUDENT');
   const form = h.element('#profile-form');
@@ -152,6 +163,33 @@ test('student profile shows uploaded résumé metadata and extracted text withou
   assert.match(html, /Extracted résumé text/);
   assert.match(html, /\/assistlink\/api\/me\/resume/);
   assert.doesNotMatch(html, /name="resumeUrl"|name="resumeText"/);
+});
+
+test('résumé upload snapshots the selected PDF before disabling the file input', async () => {
+  const h = harness('STUDENT');
+  const form = h.element('#resume-form');
+  const submit = { disabled: false, textContent: 'Upload résumé', isConnected: true };
+  const error = { textContent: '' };
+  const file = { name: 'david.pdf', type: 'application/pdf', size: 82555 };
+  const input = { name: 'resume', disabled: false };
+  form.id = 'resume-form';
+  Object.defineProperty(form, 'values', { get: () => input.disabled ? {} : { resume: file } });
+  form.querySelector = selector => selector === '[type=submit]' ? submit : error;
+  form.querySelectorAll = () => [input, submit];
+  let uploadBody;
+  const fetch = h.context.fetch;
+  h.context.fetch = async (url, options) => {
+    if (url.endsWith('/me/resume')) {
+      uploadBody = options.body;
+      return { ok: true, status: 201, json: async () => ({ data: { resume: { fileName: 'david.pdf' } } }) };
+    }
+    return fetch(url, options);
+  };
+
+  await h.documentEvents.submit({ target: form, preventDefault() {} });
+
+  assert.equal(uploadBody.values.resume, file);
+  assert.equal(error.textContent, '');
 });
 
 test('invalid demo credentials keep the sign-in dialog open and show the generic server error', async () => {

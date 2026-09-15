@@ -14,6 +14,15 @@ const FACULTY_PROGRAMS = {
 };
 const facultyNames = Object.keys(FACULTY_PROGRAMS);
 const majorsFor = faculty => faculty && FACULTY_PROGRAMS[faculty] ? FACULTY_PROGRAMS[faculty] : [];
+const OPPORTUNITY_TYPES = [
+  { value: 'RA', label: 'Research Assistant', filterLabel: 'Research', className: 'ra' },
+  { value: 'TA', label: 'Teaching Assistant', filterLabel: 'Teaching', className: 'ta' },
+  { value: 'INTERNSHIP', label: 'Internship', filterLabel: 'Internship', className: 'internship' },
+  { value: 'PROJECT_ASSISTANT', label: 'Project Assistant', filterLabel: 'Projects', className: 'project' },
+  { value: 'LAB_ASSISTANT', label: 'Laboratory Assistant', filterLabel: 'Laboratory', className: 'lab' },
+  { value: 'PEER_TUTOR', label: 'Peer Tutor', filterLabel: 'Peer tutoring', className: 'tutor' },
+];
+const opportunityType = value => OPPORTUNITY_TYPES.find(type => type.value === value) || { value, label: value, filterLabel: value, className: '' };
 const state = { user: null, view: 'opportunities', posts: [], applications: [], category: 'ALL', search: '', development: false, demoAuthEnabled: false, revision: 0, users: [], userQuery: '', userRole: '', userPage: 1, userPagination: null };
 let devUser;
 try { devUser = JSON.parse(sessionStorage.getItem('assistlink_dev') || 'null'); } catch { sessionStorage.removeItem('assistlink_dev'); }
@@ -48,7 +57,7 @@ const isStaff = () => state.user && ['PROFESSOR', 'ADMIN'].includes(state.user.r
 const owns = post => isStaff() && (state.user.role === 'ADMIN' || post.authorId === state.user.userId);
 const date = value => new Date(value).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
 const tags = skills => `<div class="tags">${(skills || []).map(s => `<span class="tag">${escapeHtml(s)}</span>`).join('')}</div>`;
-const badge = post => `<span class="category ${post.jobCategory === 'TA' ? 'ta' : ''}">${post.jobCategory === 'TA' ? 'TEACHING ASSISTANT' : 'RESEARCH ASSISTANT'}</span>`;
+const badge = post => { const type = opportunityType(post.jobCategory); return `<span class="category ${type.className}">${escapeHtml(type.label.toUpperCase())}</span>`; };
 function heading(title, subtitle, action = '') { return `<div class="page-heading"><div><p class="eyebrow">${state.user?.role === 'ADMIN' ? 'Campus administration' : state.user?.role === 'PROFESSOR' ? 'Your teaching & research team' : 'Grow with your campus'}</p><h1>${title}</h1><p class="subtitle">${subtitle}</p></div>${action}</div>`; }
 function empty(title, message, action = '') { return `<div class="empty"><div class="empty-symbol" aria-hidden="true">↗</div><h2>${title}</h2><p>${escapeHtml(message)}</p>${action}</div>`; }
 function renderNav() {
@@ -179,7 +188,7 @@ function confirmRole(id) {
 }
 function renderBoard() {
   const manage = state.view === 'manage';
-  $('#main').innerHTML = heading(manage ? 'Make room for fresh talent.' : 'Find your next opportunity.', manage ? 'Create opportunities and connect with your next assistant.' : 'Explore research and teaching roles across your campus.', isStaff() ? '<button class="button primary" data-action="create">＋ Create posting</button>' : '') + (manage ? '' : '<section class="banner"><div><p class="eyebrow">Learn. Contribute. Connect.</p><h2>Your skills can make a difference.</h2><p>Discover a research project or teaching role that moves you forward.</p></div><span class="banner-icon" aria-hidden="true">↗</span></section>') + `<div class="toolbar"><input class="search" id="search" type="search" aria-label="Search opportunities" placeholder="Search by title, skill, or professor…" value="${escapeHtml(state.search)}"><div class="filters" aria-label="Opportunity type">${[['ALL','All opportunities'],['RA','Research'],['TA','Teaching']].map(([value,label]) => `<button data-category="${value}" aria-pressed="${state.category === value}">${label}</button>`).join('')}</div></div><div class="results-label"><span id="result-count" aria-live="polite"></span><span>Newest first</span></div><div id="post-grid" class="grid"></div>`;
+  $('#main').innerHTML = heading(manage ? 'Make room for fresh talent.' : 'Find your next opportunity.', manage ? 'Create opportunities and connect with your next assistant.' : 'Explore academic and campus roles across your university.', isStaff() ? '<button class="button primary" data-action="create">＋ Create posting</button>' : '') + (manage ? '' : '<section class="banner"><div><p class="eyebrow">Learn. Contribute. Connect.</p><h2>Your skills can make a difference.</h2><p>Discover a role, project, internship, or tutoring opportunity that moves you forward.</p></div><span class="banner-icon" aria-hidden="true">↗</span></section>') + `<div class="toolbar"><input class="search" id="search" type="search" aria-label="Search opportunities" placeholder="Search by title, skill, or professor…" value="${escapeHtml(state.search)}"><div class="filters" aria-label="Opportunity type">${[{ value: 'ALL', filterLabel: 'All opportunities' }, ...OPPORTUNITY_TYPES].map(type => `<button data-category="${type.value}" aria-pressed="${state.category === type.value}">${type.filterLabel}</button>`).join('')}</div></div><div class="results-label"><span id="result-count" aria-live="polite"></span><span>Newest first</span></div><div id="post-grid" class="grid"></div>`;
   renderCards();
 }
 function renderCards() {
@@ -233,7 +242,9 @@ window.addEventListener('beforeunload', event => {
   if (profileDirty || profileSaving) { event.preventDefault(); event.returnValue = ''; }
 });
 function postForm(post = {}) {
-  openDialog(post.id ? 'Edit opportunity' : 'Create an opportunity', `<form id="post-form" data-id="${post.id || ''}">${field('Opportunity title','title',post.title,'text','required minlength="3" maxlength="200"')}<div class="field"><label for="jobCategory">Opportunity type</label><select id="jobCategory" name="jobCategory"><option value="RA">Research assistant</option><option value="TA" ${post.jobCategory === 'TA' ? 'selected' : ''}>Teaching assistant</option></select></div>${area('Description','details',post.details,'required')}${field('Required skills, separated by commas','requiredSkills',(post.requiredSkills || []).join(', '))}<div class="field"><label class="checkbox"><input type="checkbox" name="private" ${post.private ? 'checked' : ''}>Private posting</label><small>Private postings are hidden from the opportunity board.</small></div><p class="form-error" role="alert"></p><button class="button primary" type="submit">${post.id ? 'Save changes' : 'Publish opportunity'}</button></form>`);
+  const selectedCategory = post.jobCategory || 'RA';
+  const categoryOptions = OPPORTUNITY_TYPES.map(type => `<option value="${type.value}" ${selectedCategory === type.value ? 'selected' : ''}>${type.label}</option>`).join('');
+  openDialog(post.id ? 'Edit opportunity' : 'Create an opportunity', `<form id="post-form" data-id="${post.id || ''}">${field('Opportunity title','title',post.title,'text','required minlength="3" maxlength="200"')}<div class="field"><label for="jobCategory">Opportunity type</label><select id="jobCategory" name="jobCategory">${categoryOptions}</select></div>${area('Description','details',post.details,'required')}${field('Required skills, separated by commas','requiredSkills',(post.requiredSkills || []).join(', '))}<div class="field"><label class="checkbox"><input type="checkbox" name="private" ${post.private ? 'checked' : ''}>Private posting</label><small>Private postings are hidden from the opportunity board.</small></div><p class="form-error" role="alert"></p><button class="button primary" type="submit">${post.id ? 'Save changes' : 'Publish opportunity'}</button></form>`);
 }
 function renderApplications() {
   $('#main').innerHTML = heading('Keep your next step in sight.', 'Follow the progress of your research and teaching applications.') + `<div class="grid">${state.applications.length ? state.applications.map(a => `<article class="card"><div class="card-head">${badge(a.post)}<span class="status">${escapeHtml(a.status)}</span></div><h2>${escapeHtml(a.post.title)}</h2><p class="author">${escapeHtml(a.post.author.name)}</p>${tags(a.post.requiredSkills)}<div class="card-bottom"><span>Applied ${date(a.createdAt)}</span><button class="link-button" data-post="${a.postId}">View posting ↗</button></div></article>`).join('') : empty('Your next step is waiting', 'Explore the opportunity board and apply to a role that interests you.', '<button class="button primary" data-view="opportunities">Explore opportunities</button>')}</div>`;
@@ -291,7 +302,10 @@ document.addEventListener('submit', async event => {
   const form = event.target; event.preventDefault();
   const submit = form.querySelector('[type=submit]'); if (!submit || submit.disabled) return;
   submit.disabled = true; form.querySelector('.form-error').textContent = '';
-  const values = Object.fromEntries(new FormData(form));
+  // Snapshot the form before any controls are disabled. Disabled file inputs
+  // are omitted from FormData, which would otherwise produce an empty upload.
+  const formData = new FormData(form);
+  const values = Object.fromEntries(formData);
   try {
     if (form.id === 'users-search-form') { state.userQuery = values.q.trim(); state.userRole = values.role; state.userPage = 1; await navigate('users'); }
     if (form.id === 'role-form') {
@@ -328,7 +342,7 @@ document.addEventListener('submit', async event => {
       submit.textContent = 'Uploading and reading PDF…';
       form.querySelectorAll('input, button').forEach(control => { control.disabled = true; });
       try {
-        await api('/me/resume', 'POST', new FormData(form));
+        await api('/me/resume', 'POST', formData);
         await navigate('profile');
         notify('Résumé uploaded and text extracted successfully.');
       } catch (error) {

@@ -92,7 +92,11 @@ async function main() {
   }
 
   async function seedPost(data: {
-    title: string; details: string; jobCategory: 'RA' | 'TA'; requiredSkills: string[]; authorId: number;
+    title: string;
+    details: string;
+    jobCategory: 'RA' | 'TA' | 'INTERNSHIP' | 'PROJECT_ASSISTANT' | 'LAB_ASSISTANT' | 'PEER_TUTOR';
+    requiredSkills: string[];
+    authorId: number;
   }) {
     const existing = await prisma.post.findFirst({ where: { title: data.title, authorId: data.authorId } });
     return existing
@@ -133,12 +137,27 @@ async function main() {
     seedPost({
       title: 'Food Quality Laboratory Assistant',
       details: 'Prepare samples, maintain laboratory records, and assist with food quality and shelf-life experiments.',
-      jobCategory: 'RA', requiredSkills: ['Laboratory', 'Food Science', 'Quality Control'], authorId: professors.get('prof-006')!.id,
+      jobCategory: 'LAB_ASSISTANT', requiredSkills: ['Laboratory', 'Food Science', 'Quality Control'], authorId: professors.get('prof-006')!.id,
     }),
     seedPost({
       title: 'Evidence-Based Nursing Research Assistant',
       details: 'Support literature reviews and structured data collection for a community health research project.',
       jobCategory: 'RA', requiredSkills: ['Research', 'Patient Care', 'Health Communication'], authorId: professors.get('prof-009')!.id,
+    }),
+    seedPost({
+      title: 'Digital Content Internship',
+      details: 'Join a supervised semester internship producing social content, campaign assets, and audience reports for university initiatives.',
+      jobCategory: 'INTERNSHIP', requiredSkills: ['Content Creation', 'Social Media', 'Analytics'], authorId: professors.get('prof-004')!.id,
+    }),
+    seedPost({
+      title: 'Community Legal Clinic Project Assistant',
+      details: 'Coordinate case materials, conduct guided legal research, and help the faculty team deliver community legal education workshops.',
+      jobCategory: 'PROJECT_ASSISTANT', requiredSkills: ['Legal Research', 'Organization', 'Writing'], authorId: professors.get('prof-007')!.id,
+    }),
+    seedPost({
+      title: 'Music Production Peer Tutor',
+      details: 'Support fellow students during weekly practice sessions covering recording workflows, critical listening, and introductory music production.',
+      jobCategory: 'PEER_TUTOR', requiredSkills: ['Music Production', 'Communication', 'Tutoring'], authorId: professors.get('prof-008')!.id,
     }),
   ]);
 

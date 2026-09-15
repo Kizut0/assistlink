@@ -32,6 +32,10 @@ enum ApplicationStatus {
 enum JobCategory {
   RA
   TA
+  INTERNSHIP
+  PROJECT_ASSISTANT
+  LAB_ASSISTANT
+  PEER_TUTOR
 }
 
 model Department {
