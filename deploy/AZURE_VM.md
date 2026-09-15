@@ -54,7 +54,7 @@ chmod +x deploy/backup-postgres.sh
 ```
 
 Edit `.env.production` with the vault URL, Entra identifiers, domain callback,
-`RANKING_PROVIDER=openrouter`, `OPENROUTER_MODEL=openai/gpt-oss-20b:free`, and
+`RANKING_PROVIDER=openrouter`, `OPENROUTER_MODEL=openai/gpt-oss-20b`, and
 the path `/etc/assistlink/postgres-password`. Never add database
 passwords, JWT secrets, or API keys there.
 
@@ -112,9 +112,9 @@ docker compose --env-file .env.production -f compose.production.yml \
   run --rm --no-deps api npm run verify:openrouter
 ```
 
-The free OpenRouter endpoint may return rate-limit or temporary availability
-errors. The verification command exits nonzero and prints only a safe status,
-model, and length-limited provider message; it never falls back to a paid model.
+The configured OpenRouter model uses your OpenRouter credits. The verification
+command exits nonzero and prints only a safe status, model, and length-limited
+provider message; it never silently switches models.
 
 ### Demo data and test sign-in
 

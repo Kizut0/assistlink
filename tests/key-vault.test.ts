@@ -112,7 +112,7 @@ test('buildConfig exposes the lightweight OpenRouter defaults and accepts provid
   });
   assert.equal(configured.RANKING_PROVIDER, 'openrouter');
   assert.equal(configured.OPENROUTER_API_KEY, 'test-key');
-  assert.equal(configured.OPENROUTER_MODEL, 'openai/gpt-oss-20b:free');
+  assert.equal(configured.OPENROUTER_MODEL, 'openai/gpt-oss-20b');
   assert.equal(configured.OPENROUTER_BASE_URL, 'https://openrouter.ai/api/v1');
 });
 

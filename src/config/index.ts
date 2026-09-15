@@ -53,7 +53,7 @@ export function buildConfig(source: Source = process.env) {
     // a provider key is provisioned. Production selects OpenRouter explicitly.
     RANKING_PROVIDER: (source.RANKING_PROVIDER ?? 'gemini').trim().toLowerCase(),
     OPENROUTER_API_KEY: source.OPENROUTER_API_KEY,
-    OPENROUTER_MODEL: source.OPENROUTER_MODEL ?? 'openai/gpt-oss-20b:free',
+    OPENROUTER_MODEL: source.OPENROUTER_MODEL ?? 'openai/gpt-oss-20b',
     OPENROUTER_BASE_URL:
       source.OPENROUTER_BASE_URL ?? 'https://openrouter.ai/api/v1',
     GEMINI_API_KEY: source.GEMINI_API_KEY,

@@ -49,11 +49,11 @@ Real Microsoft sign-in also needs `AD_CLIENT_ID`, `AD_TENANT_ID`, and an
 `http://localhost:8081/assistlink/api/auth/callback`.
 
 Ranking is optional until used. The production demo uses OpenRouter's lightweight
-free endpoint:
+`gpt-oss-20b` endpoint:
 
 ```env
 RANKING_PROVIDER=openrouter
-OPENROUTER_MODEL=openai/gpt-oss-20b:free
+OPENROUTER_MODEL=openai/gpt-oss-20b
 # Local development only; production loads OPENROUTER-API-KEY from Key Vault.
 OPENROUTER_API_KEY=your-openrouter-key
 ```

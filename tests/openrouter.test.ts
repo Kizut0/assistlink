@@ -42,7 +42,7 @@ function rankingResponse() {
 
 test('OpenRouter ranking uses the OpenAI-compatible structured-output request and preserves résumé input', async () => {
   config.OPENROUTER_API_KEY = 'sk-or-v1-test-key';
-  config.OPENROUTER_MODEL = 'openai/gpt-oss-20b:free';
+  config.OPENROUTER_MODEL = 'openai/gpt-oss-20b';
   config.OPENROUTER_BASE_URL = 'https://openrouter.test/api/v1';
   let input = '';
   let request: RequestInit | undefined;
@@ -57,7 +57,7 @@ test('OpenRouter ranking uses the OpenAI-compatible structured-output request an
   assert.equal(result[0].score, 91);
   assert.equal(input, 'https://openrouter.test/api/v1/chat/completions');
   const body = JSON.parse(String(request?.body)) as Record<string, any>;
-  assert.equal(body.model, 'openai/gpt-oss-20b:free');
+  assert.equal(body.model, 'openai/gpt-oss-20b');
   assert.equal(body.response_format.type, 'json_schema');
   assert.equal(body.response_format.json_schema.strict, true);
   assert.ok(body.response_format.json_schema.schema);
@@ -121,13 +121,13 @@ test('OpenRouter retries transient failures and does not retry invalid requests'
 
 test('OpenRouter verification uses the same structured request and reports the configured model', async () => {
   config.OPENROUTER_API_KEY = 'test-key';
-  config.OPENROUTER_MODEL = 'openai/gpt-oss-20b:free';
+  config.OPENROUTER_MODEL = 'openai/gpt-oss-20b';
   let request: RequestInit | undefined;
   globalThis.fetch = (async (_input, init) => {
     request = init;
     return new Response(JSON.stringify({ choices: [{ message: { content: '{"status":"OK"}' } }] }), { status: 200 });
   }) as typeof fetch;
-  assert.deepEqual(await verifyOpenRouterConnection(), { model: 'openai/gpt-oss-20b:free', httpStatus: 200 });
+  assert.deepEqual(await verifyOpenRouterConnection(), { model: 'openai/gpt-oss-20b', httpStatus: 200 });
   const body = JSON.parse(String(request?.body)) as Record<string, any>;
   assert.equal(body.response_format.type, 'json_schema');
   assert.equal(body.response_format.json_schema.name, 'assistlink_ranking');
