@@ -108,19 +108,20 @@ test('Gemini provider diagnostics classify 400 errors without logging secrets or
   assert.doesNotMatch(logged, /alice@example\.com/);
 });
 
-test('Gemini provider diagnostics distinguish precondition and invalid request failures', async () => {
+test('Gemini provider diagnostics distinguish precondition, invalid request, and unavailable model failures', async () => {
   config.GEMINI_API_KEY = 'test-key';
   console.error = () => undefined;
   const cases = [
     { googleStatus: 'FAILED_PRECONDITION', expectedStatus: 503, expectedMessage: /billing and regional eligibility/ },
     { googleStatus: 'INVALID_ARGUMENT', expectedStatus: 502, expectedMessage: /rejected the ranking request/ },
+    { googleStatus: 'NOT_FOUND', httpStatus: 404, expectedStatus: 503, expectedMessage: /GEMINI_MODEL=gemini-3\.6-flash/ },
   ];
 
   for (const item of cases) {
     let requests = 0;
     globalThis.fetch = (async () => {
       requests += 1;
-      return new Response(JSON.stringify({ error: { status: item.googleStatus, message: 'Safe provider diagnostic' } }), { status: 400 });
+      return new Response(JSON.stringify({ error: { status: item.googleStatus, message: 'Safe provider diagnostic' } }), { status: item.httpStatus ?? 400 });
     }) as typeof fetch;
     await assert.rejects(
       rankApplicants(post, applicants, { sleep: async () => undefined }),

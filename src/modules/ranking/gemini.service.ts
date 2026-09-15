@@ -153,7 +153,12 @@ function sensitiveInputValues(post?: RankingPost, applicants: RankingApplicant[]
 function sanitizeProviderMessage(message: string | null, sensitiveValues: string[]): string | null {
   if (!message) return null;
   let sanitized = message;
-  for (const value of sensitiveValues) sanitized = sanitized.split(value).join('[REDACTED]');
+  for (const value of sensitiveValues) {
+    sanitized = sanitized.split(value).join('[REDACTED]');
+    for (const word of value.split(/[^\p{L}\p{N}]+/u).filter(item => item.length >= 4)) {
+      sanitized = sanitized.replace(new RegExp(`\\b${word.replace(/[.*+?^${}()|[\\]\\\\]/g, '\\\\$&')}\\b`, 'giu'), '[REDACTED]');
+    }
+  }
   sanitized = sanitized
     .replace(/AIza[0-9A-Za-z_-]{20,}/g, '[REDACTED]')
     .replace(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi, '[REDACTED]')
@@ -166,8 +171,8 @@ function providerDiagnostic(response: Response, body: unknown, sensitiveValues: 
   const fields = extractErrorFields(body);
   return {
     httpStatus: response.status,
-    googleStatus: fields.status,
-    reason: fields.reason,
+    googleStatus: sanitizeProviderMessage(fields.status, sensitiveValues),
+    reason: sanitizeProviderMessage(fields.reason, sensitiveValues),
     message: sanitizeProviderMessage(fields.message, sensitiveValues),
     model: config.GEMINI_MODEL,
   };
@@ -187,6 +192,9 @@ function mapProviderError(diagnostic: GeminiProviderDiagnostic): GeminiProviderE
   }
   if (diagnostic.httpStatus === 403 || status === 'PERMISSION_DENIED') {
     return new GeminiProviderError(503, 'Gemini credentials do not have access to the configured model.', diagnostic);
+  }
+  if (diagnostic.httpStatus === 404 || status === 'NOT_FOUND') {
+    return new GeminiProviderError(503, 'The configured Gemini model is unavailable. Set GEMINI_MODEL=gemini-3.6-flash.', diagnostic);
   }
   if (diagnostic.httpStatus === 429 || status === 'RESOURCE_EXHAUSTED') {
     return new GeminiProviderError(503, 'Gemini rate limit reached. Try again later.', diagnostic);

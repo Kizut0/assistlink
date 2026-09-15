@@ -10,8 +10,9 @@ location, and deployment script. Complete the Azure and host setup below once.
 3. On the Key Vault, add the VM identity with the **Key Vault Secrets User** RBAC
    role. It needs read access only.
 4. Add these Key Vault secrets with the exact names:
-   `DATABASE-URL`, `JWT-SECRET`, `AD-CLIENT-SECRET`, and optionally
-   `GEMINI-API-KEY`. For temporary demo login, also add
+   `DATABASE-URL`, `JWT-SECRET`, `AD-CLIENT-SECRET`, and
+   `OPENROUTER-API-KEY`. `GEMINI-API-KEY` is optional for the backward-compatible
+   Gemini provider. For temporary demo login, also add
    `DEMO-AUTH-PASSCODE` with a strong shared passcode.
 5. Set `DATABASE-URL` to
    `postgresql://assistlink:PASSWORD@postgres:5432/assistlink`, using the same
@@ -53,7 +54,8 @@ chmod +x deploy/backup-postgres.sh
 ```
 
 Edit `.env.production` with the vault URL, Entra identifiers, domain callback,
-Gemini model, and the path `/etc/assistlink/postgres-password`. Never add database
+`RANKING_PROVIDER=openrouter`, `OPENROUTER_MODEL=openai/gpt-oss-20b:free`, and
+the path `/etc/assistlink/postgres-password`. Never add database
 passwords, JWT secrets, or API keys there.
 
 Create the password file on the VM. Paste the same hexadecimal password used in
@@ -100,20 +102,19 @@ empty database schema; it does not load development seed data. The API listens
 only on VM localhost, and PostgreSQL has no host port, so public traffic must pass
 through Nginx.
 
-Verify Gemini separately after deploying. This loads `GEMINI-API-KEY` through
-the same Key Vault bootstrap as the API, exercises the same structured-output
-request used by ranking, and never prints the key or student data:
+Verify OpenRouter separately after deploying. This loads `OPENROUTER-API-KEY`
+through the same Key Vault bootstrap as the API, exercises the same
+structured-output request used by ranking, and never prints the key or student
+data:
 
 ```bash
 docker compose --env-file .env.production -f compose.production.yml \
-  run --rm --no-deps api npm run verify:gemini
+  run --rm --no-deps api npm run verify:openrouter
 ```
 
-Use `GEMINI_MODEL=gemini-2.5-flash`. If verification reports
-`API_KEY_INVALID`, replace the Key Vault secret with a current Google AI Studio
-authorization key. `FAILED_PRECONDITION` indicates that the Google project needs
-billing or regional eligibility reviewed; `RESOURCE_EXHAUSTED` indicates quota
-or rate limiting.
+The free OpenRouter endpoint may return rate-limit or temporary availability
+errors. The verification command exits nonzero and prints only a safe status,
+model, and length-limited provider message; it never falls back to a paid model.
 
 ### Demo data and test sign-in
 

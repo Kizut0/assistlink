@@ -1,7 +1,7 @@
 import 'dotenv/config';
 
-// Required service secrets the app must never boot without. Gemini is optional
-// during local development so ranking can be added after the API key is created.
+// Required service secrets the app must never boot without. AI ranking provider
+// keys are optional during local development so ranking can be enabled later.
 // AD_CLIENT_ID / AD_TENANT_ID are deliberately NOT here: a client id and tenant id
 // are public AD identifiers, not service secrets.
 export const REQUIRED = [
@@ -49,10 +49,15 @@ export function buildConfig(source: Source = process.env) {
     // Required service secrets.
     ...secrets,
 
-    // Optional until ranking is configured. Ranking returns a clear 503 when
-    // no Google AI Studio key is present, so the rest of the API still boots.
-    GEMINI_API_KEY: process.env.GEMINI_API_KEY,
-    GEMINI_MODEL: process.env.GEMINI_MODEL ?? 'gemini-2.5-flash',
+    // Ranking providers remain optional so the rest of the API can boot before
+    // a provider key is provisioned. Production selects OpenRouter explicitly.
+    RANKING_PROVIDER: (source.RANKING_PROVIDER ?? 'gemini').trim().toLowerCase(),
+    OPENROUTER_API_KEY: source.OPENROUTER_API_KEY,
+    OPENROUTER_MODEL: source.OPENROUTER_MODEL ?? 'openai/gpt-oss-20b:free',
+    OPENROUTER_BASE_URL:
+      source.OPENROUTER_BASE_URL ?? 'https://openrouter.ai/api/v1',
+    GEMINI_API_KEY: source.GEMINI_API_KEY,
+    GEMINI_MODEL: source.GEMINI_MODEL ?? 'gemini-3.6-flash',
     GEMINI_BASE_URL:
       source.GEMINI_BASE_URL ?? 'https://generativelanguage.googleapis.com/v1beta',
 

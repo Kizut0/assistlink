@@ -34,6 +34,7 @@ test('loads required and optional secrets from Key Vault without logging values'
     'DATABASE-URL': 'postgresql://vault',
     'JWT-SECRET': 'vault-jwt',
     'AD-CLIENT-SECRET': 'vault-ad',
+    'OPENROUTER-API-KEY': 'vault-openrouter',
     'GEMINI-API-KEY': 'vault-gemini',
     'DEMO-AUTH-PASSCODE': 'vault-demo-passcode',
   };
@@ -46,10 +47,11 @@ test('loads required and optional secrets from Key Vault without logging values'
   });
 
   assert.equal(clientUrl, 'https://assistlink-test.vault.azure.net');
-  assert.deepEqual(new Set(loaded), new Set(['DATABASE_URL', 'JWT_SECRET', 'AD_CLIENT_SECRET', 'GEMINI_API_KEY', 'DEMO_AUTH_PASSCODE']));
+  assert.deepEqual(new Set(loaded), new Set(['DATABASE_URL', 'JWT_SECRET', 'AD_CLIENT_SECRET', 'OPENROUTER_API_KEY', 'GEMINI_API_KEY', 'DEMO_AUTH_PASSCODE']));
   assert.equal(source.DATABASE_URL, 'postgresql://vault');
   assert.equal(source.JWT_SECRET, 'vault-jwt');
   assert.equal(source.AD_CLIENT_SECRET, 'vault-ad');
+  assert.equal(source.OPENROUTER_API_KEY, 'vault-openrouter');
   assert.equal(source.GEMINI_API_KEY, 'vault-gemini');
   assert.equal(source.DEMO_AUTH_PASSCODE, 'vault-demo-passcode');
 });
@@ -74,7 +76,7 @@ test('an unavailable optional Gemini secret does not block startup', async () =>
   };
   const client: KeyVaultClient = {
     getSecret: async name => {
-      if (name === 'GEMINI-API-KEY' || name === 'DEMO-AUTH-PASSCODE') throw new Error('not found');
+      if (name === 'OPENROUTER-API-KEY' || name === 'GEMINI-API-KEY' || name === 'DEMO-AUTH-PASSCODE') throw new Error('not found');
       return { value: `value-for-${name}` };
     },
   };
@@ -95,6 +97,23 @@ test('demo authentication requires its passcode only when explicitly enabled', (
   const enabled = buildConfig({ ...base, DEMO_AUTH_ENABLED: 'true', DEMO_AUTH_PASSCODE: 'temporary-passcode' });
   assert.equal(enabled.demoAuth.enabled, true);
   assert.equal(enabled.demoAuth.passcode, 'temporary-passcode');
+});
+
+test('buildConfig exposes the lightweight OpenRouter defaults and accepts provider selection', () => {
+  const base = {
+    DATABASE_URL: 'postgresql://test',
+    JWT_SECRET: 'jwt-test-secret',
+    AD_CLIENT_SECRET: 'ad-test-secret',
+  };
+  const configured = buildConfig({
+    ...base,
+    RANKING_PROVIDER: 'OPENROUTER',
+    OPENROUTER_API_KEY: 'test-key',
+  });
+  assert.equal(configured.RANKING_PROVIDER, 'openrouter');
+  assert.equal(configured.OPENROUTER_API_KEY, 'test-key');
+  assert.equal(configured.OPENROUTER_MODEL, 'openai/gpt-oss-20b:free');
+  assert.equal(configured.OPENROUTER_BASE_URL, 'https://openrouter.ai/api/v1');
 });
 
 test('rejects non-HTTPS vault URLs before creating a client', async () => {

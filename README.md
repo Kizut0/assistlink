@@ -2,11 +2,11 @@
 
 AssistLink connects university students with research and teaching assistant
 opportunities. Students maintain profiles and apply to openings; professors review
-applications and can use Gemini-assisted candidate ranking; admins manage user
+applications and can use AI-assisted candidate ranking; admins manage user
 roles.
 
 **Stack:** Node.js 22, TypeScript, Express 5, Prisma 7, PostgreSQL 16,
-Microsoft Entra ID/MSAL, and Gemini.
+Microsoft Entra ID/MSAL, and OpenRouter.
 
 All API routes use the `/assistlink/api` prefix. The web interface is available at
 `/assistlink/` and is served directly by Express.
@@ -48,17 +48,23 @@ Real Microsoft sign-in also needs `AD_CLIENT_ID`, `AD_TENANT_ID`, and an
 `AD_REDIRECT_URI` registered with Entra. The local default callback is
 `http://localhost:8081/assistlink/api/auth/callback`.
 
-Gemini ranking is optional until used:
+Ranking is optional until used. The production demo uses OpenRouter's lightweight
+free endpoint:
 
 ```env
-GEMINI_API_KEY=your-google-ai-studio-key
-GEMINI_MODEL=gemini-2.5-flash
+RANKING_PROVIDER=openrouter
+OPENROUTER_MODEL=openai/gpt-oss-20b:free
+# Local development only; production loads OPENROUTER-API-KEY from Key Vault.
+OPENROUTER_API_KEY=your-openrouter-key
 ```
+
+Gemini remains available for backward-compatible local use by setting
+`RANKING_PROVIDER=gemini` and configuring `GEMINI_API_KEY`.
 
 Other settings are documented in `.env.example`. In production, set
 `AZURE_KEY_VAULT_URL`; startup uses `DefaultAzureCredential` to load
 `DATABASE-URL`, `JWT-SECRET`, `AD-CLIENT-SECRET`, and the optional
-`GEMINI-API-KEY` and `DEMO-AUTH-PASSCODE` before initializing the application. Managed identity is
+`OPENROUTER-API-KEY`, `GEMINI-API-KEY`, and `DEMO-AUTH-PASSCODE` before initializing the application. Managed identity is
 recommended on Azure; service-principal and Azure CLI credentials also work.
 
 ## Roles and sign-in
@@ -118,7 +124,7 @@ All paths below are relative to `/assistlink/api`.
 | `GET` | `/posts/:postId/applications` | Owner/Admin | Review applicants |
 | `GET` | `/posts/:postId/applications/:applicationId/resume` | Owner/Admin | Open an applicant résumé PDF |
 | `PATCH` | `/applications/:id` | Owner/Admin | Accept or reject an applicant |
-| `POST` | `/posts/:id/rank` | Owner/Admin | Rank applicants with Gemini |
+| `POST` | `/posts/:id/rank` | Owner/Admin | Rank applicants with the configured AI provider |
 | `GET` | `/users` | Admin | Search and filter users |
 | `PATCH` | `/users/:id/role` | Admin | Assign a user role |
 
@@ -134,7 +140,8 @@ Responses use `{ "success": true, "data": ... }` or
 | `npm run typecheck` | Type-check the project |
 | `npm run test:web` | Run API, frontend, auth, profile, and ranking tests |
 | `npm run test:users:db` | Run opt-in PostgreSQL role/concurrency tests |
-| `npm run verify:gemini` | Verify the configured Gemini key, model, and structured-output request |
+| `npm run verify:openrouter` | Verify the configured OpenRouter key, model, and structured-output request |
+| `npm run verify:gemini` | Verify the backward-compatible Gemini provider |
 | `npm run seed` | Seed demo data |
 | `npm run seed:demo` | Idempotently seed the Azure/local demo dataset |
 | `npm run seed:test-users` | Seed additional student and professor fixtures |

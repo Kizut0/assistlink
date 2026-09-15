@@ -10,7 +10,9 @@ async function start(): Promise<void> {
     import('./config/index.js'),
   ]);
 
-  if (!config.GEMINI_API_KEY) {
+  if (config.RANKING_PROVIDER === 'openrouter' && !config.OPENROUTER_API_KEY) {
+    console.warn('OpenRouter ranking disabled: OPENROUTER-API-KEY was not loaded');
+  } else if (config.RANKING_PROVIDER === 'gemini' && !config.GEMINI_API_KEY) {
     console.warn('Gemini ranking disabled: GEMINI-API-KEY was not loaded');
   }
 
