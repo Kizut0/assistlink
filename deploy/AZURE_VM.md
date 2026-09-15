@@ -100,6 +100,21 @@ empty database schema; it does not load development seed data. The API listens
 only on VM localhost, and PostgreSQL has no host port, so public traffic must pass
 through Nginx.
 
+Verify Gemini separately after deploying. This loads `GEMINI-API-KEY` through
+the same Key Vault bootstrap as the API, exercises the same structured-output
+request used by ranking, and never prints the key or student data:
+
+```bash
+docker compose --env-file .env.production -f compose.production.yml \
+  run --rm --no-deps api npm run verify:gemini
+```
+
+Use `GEMINI_MODEL=gemini-2.5-flash`. If verification reports
+`API_KEY_INVALID`, replace the Key Vault secret with a current Google AI Studio
+authorization key. `FAILED_PRECONDITION` indicates that the Google project needs
+billing or regional eligibility reviewed; `RESOURCE_EXHAUSTED` indicates quota
+or rate limiting.
+
 ### Demo data and test sign-in
 
 For the recorded demonstration, set `DEMO_AUTH_ENABLED=true` in

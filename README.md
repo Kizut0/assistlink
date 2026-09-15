@@ -52,7 +52,7 @@ Gemini ranking is optional until used:
 
 ```env
 GEMINI_API_KEY=your-google-ai-studio-key
-GEMINI_MODEL=gemini-3.6-flash
+GEMINI_MODEL=gemini-2.5-flash
 ```
 
 Other settings are documented in `.env.example`. In production, set
@@ -134,6 +134,7 @@ Responses use `{ "success": true, "data": ... }` or
 | `npm run typecheck` | Type-check the project |
 | `npm run test:web` | Run API, frontend, auth, profile, and ranking tests |
 | `npm run test:users:db` | Run opt-in PostgreSQL role/concurrency tests |
+| `npm run verify:gemini` | Verify the configured Gemini key, model, and structured-output request |
 | `npm run seed` | Seed demo data |
 | `npm run seed:demo` | Idempotently seed the Azure/local demo dataset |
 | `npm run seed:test-users` | Seed additional student and professor fixtures |

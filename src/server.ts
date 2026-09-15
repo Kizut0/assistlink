@@ -10,6 +10,10 @@ async function start(): Promise<void> {
     import('./config/index.js'),
   ]);
 
+  if (!config.GEMINI_API_KEY) {
+    console.warn('Gemini ranking disabled: GEMINI-API-KEY was not loaded');
+  }
+
   const server = app.listen(config.port, () => {
     console.log(`AssistLink API (${config.env}) listening on :${config.port}`);
   });
