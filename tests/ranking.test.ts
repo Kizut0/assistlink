@@ -67,7 +67,7 @@ test('Gemini ranking uses structured JSON, sends only ranking inputs, and valida
       responseMimeType?: unknown;
     };
   };
-  assert.equal(requestJson.generationConfig.responseFormat?.text?.mimeType, 'application/json');
+  assert.equal(requestJson.generationConfig.responseFormat?.text?.mimeType, 'APPLICATION_JSON');
   assert.ok(requestJson.generationConfig.responseFormat?.text?.schema);
   assert.equal(requestJson.generationConfig.responseSchema, undefined);
   assert.equal(requestJson.generationConfig.responseMimeType, undefined);

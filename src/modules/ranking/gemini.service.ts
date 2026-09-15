@@ -104,7 +104,7 @@ function requestBody(prompt: string, schema: object) {
       temperature: 0.1,
       responseFormat: {
         text: {
-          mimeType: 'application/json',
+          mimeType: 'APPLICATION_JSON',
           schema,
         },
       },
