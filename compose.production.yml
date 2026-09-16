@@ -44,7 +44,6 @@ services:
       AD_REDIRECT_URI: ${AD_REDIRECT_URI:?Set AD_REDIRECT_URI}
       RANKING_PROVIDER: ${RANKING_PROVIDER:-openrouter}
       OPENROUTER_MODEL: ${OPENROUTER_MODEL:-openai/gpt-oss-20b}
-      GEMINI_MODEL: ${GEMINI_MODEL:-gemini-3.6-flash}
       DEMO_AUTH_ENABLED: ${DEMO_AUTH_ENABLED:-false}
     depends_on:
       postgres:

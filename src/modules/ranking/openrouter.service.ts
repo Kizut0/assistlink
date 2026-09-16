@@ -1,7 +1,6 @@
 import { config } from '../../config/index.js';
 import { ApiError } from '../../utils/ApiError.js';
 import { rankingResponseSchema, type RankingResult } from './ranking.validator.js';
-import type { RankingApplicant, RankingPost } from './gemini.service.js';
 
 const MAX_ATTEMPTS = 3;
 const REQUEST_TIMEOUT_MS = 20_000;
@@ -39,6 +38,24 @@ const verificationSchema = {
   required: ['status'],
   additionalProperties: false,
 } as const;
+
+export interface RankingApplicant {
+  applicationId: number;
+  major?: string | null;
+  faculty?: string | null;
+  skills: string[];
+  gpa: number | null;
+  workHoursPerWeek: number | null;
+  resumeText: string | null;
+  bio: string | null;
+}
+
+export interface RankingPost {
+  title: string;
+  details: string;
+  requiredSkills: string[];
+  jobCategory: string;
+}
 
 interface OpenRouterResponseBody {
   choices?: Array<{

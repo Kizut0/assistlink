@@ -35,7 +35,6 @@ test('loads required and optional secrets from Key Vault without logging values'
     'JWT-SECRET': 'vault-jwt',
     'AD-CLIENT-SECRET': 'vault-ad',
     'OPENROUTER-API-KEY': 'vault-openrouter',
-    'GEMINI-API-KEY': 'vault-gemini',
     'DEMO-AUTH-PASSCODE': 'vault-demo-passcode',
   };
   let clientUrl = '';
@@ -47,12 +46,11 @@ test('loads required and optional secrets from Key Vault without logging values'
   });
 
   assert.equal(clientUrl, 'https://assistlink-test.vault.azure.net');
-  assert.deepEqual(new Set(loaded), new Set(['DATABASE_URL', 'JWT_SECRET', 'AD_CLIENT_SECRET', 'OPENROUTER_API_KEY', 'GEMINI_API_KEY', 'DEMO_AUTH_PASSCODE']));
+  assert.deepEqual(new Set(loaded), new Set(['DATABASE_URL', 'JWT_SECRET', 'AD_CLIENT_SECRET', 'OPENROUTER_API_KEY', 'DEMO_AUTH_PASSCODE']));
   assert.equal(source.DATABASE_URL, 'postgresql://vault');
   assert.equal(source.JWT_SECRET, 'vault-jwt');
   assert.equal(source.AD_CLIENT_SECRET, 'vault-ad');
   assert.equal(source.OPENROUTER_API_KEY, 'vault-openrouter');
-  assert.equal(source.GEMINI_API_KEY, 'vault-gemini');
   assert.equal(source.DEMO_AUTH_PASSCODE, 'vault-demo-passcode');
 });
 
@@ -69,20 +67,20 @@ test('fails startup when a required vault secret is missing', async () => {
   );
 });
 
-test('an unavailable optional Gemini secret does not block startup', async () => {
+test('an unavailable optional OpenRouter secret does not block startup', async () => {
   const source: Record<string, string | undefined> = {
     NODE_ENV: 'production',
     AZURE_KEY_VAULT_URL: 'https://assistlink-test.vault.azure.net',
   };
   const client: KeyVaultClient = {
     getSecret: async name => {
-      if (name === 'OPENROUTER-API-KEY' || name === 'GEMINI-API-KEY' || name === 'DEMO-AUTH-PASSCODE') throw new Error('not found');
+      if (name === 'OPENROUTER-API-KEY' || name === 'DEMO-AUTH-PASSCODE') throw new Error('not found');
       return { value: `value-for-${name}` };
     },
   };
   const loaded = await loadSecretsFromKeyVault(source, () => client);
   assert.deepEqual(new Set(loaded), new Set(['DATABASE_URL', 'JWT_SECRET', 'AD_CLIENT_SECRET']));
-  assert.equal(source.GEMINI_API_KEY, undefined);
+  assert.equal(source.OPENROUTER_API_KEY, undefined);
 });
 
 test('demo authentication requires its passcode only when explicitly enabled', () => {

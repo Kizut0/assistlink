@@ -49,17 +49,13 @@ export function buildConfig(source: Source = process.env) {
     // Required service secrets.
     ...secrets,
 
-    // Ranking providers remain optional so the rest of the API can boot before
-    // a provider key is provisioned. Production selects OpenRouter explicitly.
-    RANKING_PROVIDER: (source.RANKING_PROVIDER ?? 'gemini').trim().toLowerCase(),
+    // Ranking remains optional so the rest of the API can boot before the
+    // OpenRouter key is provisioned. OpenRouter is the only ranking provider.
+    RANKING_PROVIDER: (source.RANKING_PROVIDER ?? 'openrouter').trim().toLowerCase(),
     OPENROUTER_API_KEY: source.OPENROUTER_API_KEY,
     OPENROUTER_MODEL: source.OPENROUTER_MODEL ?? 'openai/gpt-oss-20b',
     OPENROUTER_BASE_URL:
       source.OPENROUTER_BASE_URL ?? 'https://openrouter.ai/api/v1',
-    GEMINI_API_KEY: source.GEMINI_API_KEY,
-    GEMINI_MODEL: source.GEMINI_MODEL ?? 'gemini-3.6-flash',
-    GEMINI_BASE_URL:
-      source.GEMINI_BASE_URL ?? 'https://generativelanguage.googleapis.com/v1beta',
 
     demoAuth: {
       enabled: demoAuthEnabled,

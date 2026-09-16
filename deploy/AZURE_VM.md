@@ -11,8 +11,7 @@ location, and deployment script. Complete the Azure and host setup below once.
    role. It needs read access only.
 4. Add these Key Vault secrets with the exact names:
    `DATABASE-URL`, `JWT-SECRET`, `AD-CLIENT-SECRET`, and
-   `OPENROUTER-API-KEY`. `GEMINI-API-KEY` is optional for the backward-compatible
-   Gemini provider. For temporary demo login, also add
+   `OPENROUTER-API-KEY`. For temporary demo login, also add
    `DEMO-AUTH-PASSCODE` with a strong shared passcode.
 5. Set `DATABASE-URL` to
    `postgresql://assistlink:PASSWORD@postgres:5432/assistlink`, using the same

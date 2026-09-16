@@ -16,7 +16,6 @@
     "migrate": "prisma migrate dev",
     "migrate:deploy": "prisma migrate deploy",
     "migrate:production": "tsx src/scripts/migrate-production.ts",
-    "verify:gemini": "tsx src/scripts/verify-gemini.ts",
     "verify:openrouter": "tsx src/scripts/verify-openrouter.ts",
     "migrate:reset": "prisma migrate reset",
     "generate": "prisma generate",

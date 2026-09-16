@@ -2,8 +2,7 @@ import { prisma } from '../../lib/prisma.js';
 import { ApiError } from '../../utils/ApiError.js';
 import type { AuthUser } from '../../middleware/auth.js';
 import { config } from '../../config/index.js';
-import { rankApplicants as rankGeminiApplicants } from './gemini.service.js';
-import { rankApplicants as rankOpenRouterApplicants } from './openrouter.service.js';
+import { rankApplicants } from './openrouter.service.js';
 
 const running = new Set<number>();
 
@@ -38,15 +37,6 @@ function assertOwner(post: { authorId: number } | null, actor: AuthUser) {
   if (post.authorId !== actor.userId && actor.role !== 'ADMIN') throw ApiError.forbidden('You can only rank applicants for your own posts');
 }
 
-function rankApplicantsWithConfiguredProvider(
-  post: Parameters<typeof rankGeminiApplicants>[0],
-  applicants: Parameters<typeof rankGeminiApplicants>[1],
-) {
-  if (config.RANKING_PROVIDER === 'openrouter') return rankOpenRouterApplicants(post, applicants);
-  if (config.RANKING_PROVIDER === 'gemini') return rankGeminiApplicants(post, applicants);
-  throw new ApiError(503, `Unsupported ranking provider: ${config.RANKING_PROVIDER}`);
-}
-
 export async function rankPost(postId: number, actor: AuthUser) {
   if (running.has(postId)) throw ApiError.conflict('Ranking is already running for this posting');
   running.add(postId);
@@ -71,7 +61,10 @@ export async function rankPost(postId: number, actor: AuthUser) {
       resumeText: application.student.resumeText,
       bio: application.student.bio,
     }));
-    const rankings = await rankApplicantsWithConfiguredProvider(snapshot, applicants);
+    if (config.RANKING_PROVIDER !== 'openrouter') {
+      throw new ApiError(503, 'OpenRouter ranking is not enabled (set RANKING_PROVIDER=openrouter)');
+    }
+    const rankings = await rankApplicants(snapshot, applicants);
     return await prisma.$transaction(async tx => {
       const current = await tx.post.findUnique({
         where: { id: postId },
