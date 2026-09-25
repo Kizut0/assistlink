@@ -35,6 +35,19 @@ test('serves the web UI and assets without authentication, preserves API 404s', 
   assert.equal((await missing.json()).success, false);
 });
 
+test('deep web pages require a session and preserve the requested destination', async () => {
+  for (const page of ['/assistlink/opportunities/', '/assistlink/opportunities/42/', '/assistlink/profile/', '/assistlink/applications/', '/assistlink/manage/', '/assistlink/users/']) {
+    const signedOut = await fetch(`${base}${page}`, { redirect: 'manual' });
+    assert.equal(signedOut.status, 302);
+    assert.equal(signedOut.headers.get('location'), `/assistlink/login/?next=${encodeURIComponent(page)}`);
+    const signedIn = await fetch(`${base}${page}`, { headers: { cookie } });
+    assert.equal(signedIn.status, 200);
+    assert.match(await signedIn.text(), /<title>AssistLink/);
+  }
+  assert.equal((await fetch(`${base}/assistlink/login/`)).status, 200);
+  assert.equal((await fetch(`${base}/assistlink/api/missing`)).status, 404);
+});
+
 test('supports cookies and bearer tokens, rejects expired sessions', async () => {
   for (const headers of [{ cookie }, { authorization: `Bearer ${token}` }]) {
     const response = await fetch(`${base}/assistlink/api/auth/me`, { headers });

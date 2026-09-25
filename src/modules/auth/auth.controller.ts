@@ -10,6 +10,7 @@ import { ApiError } from '../../utils/ApiError.js';
 import { getMsal, REDIRECT_URI, SCOPES } from './auth.service.js';
 import type { DemoLoginInput } from './auth.validator.js';
 import { DEMO_ADMIN, DEMO_PROFESSORS, DEMO_STUDENTS } from '../profiles/demo-data.js';
+import { safeWebReturnPath } from '../../utils/webRoutes.js';
 
 const DEMO_USERS = new Map<string, string>(
   [...DEMO_STUDENTS, ...DEMO_PROFESSORS, DEMO_ADMIN]
@@ -64,7 +65,7 @@ function issueSession(res: Response, user: { id: number; name: string; email: st
 export async function login(req: Request, res: Response): Promise<void> {
   const state = randomBytes(32).toString('hex');
   const url = await getMsal().getAuthCodeUrl({ scopes: SCOPES, redirectUri: REDIRECT_URI, state });
-  res.cookie('assistlink_oauth', jwt.sign({ state, web: req.query.web === '1' }, config.jwt.secret, { expiresIn: '10m' }), { ...cookieOptions, maxAge: 600000 });
+  res.cookie('assistlink_oauth', jwt.sign({ state, web: req.query.web === '1', returnTo: safeWebReturnPath(req.query.next) }, config.jwt.secret, { expiresIn: '10m' }), { ...cookieOptions, maxAge: 600000 });
   res.redirect(url);
 }
 
@@ -74,11 +75,13 @@ export async function callback(req: Request, res: Response): Promise<Response> {
   if (!code) throw ApiError.badRequest('Missing authorization code');
 
   let browserLogin = false;
+  let returnTo: string | undefined;
   try {
     const saved = jwt.verify(readCookie(req, 'assistlink_oauth') ?? '', config.jwt.secret) as jwt.JwtPayload;
     const actual = typeof req.query.state === 'string' ? req.query.state : '';
     if (typeof saved.state !== 'string' || actual.length !== saved.state.length || !timingSafeEqual(Buffer.from(actual), Buffer.from(saved.state))) throw new Error('State mismatch');
     browserLogin = saved.web === true;
+    returnTo = safeWebReturnPath(saved.returnTo);
   } catch { throw ApiError.unauthorized('Sign-in expired. Please start sign-in again.'); }
   res.clearCookie('assistlink_oauth', cookieOptions);
 
@@ -108,7 +111,7 @@ export async function callback(req: Request, res: Response): Promise<Response> {
 
   if (browserLogin) {
     res.cookie('assistlink_session', token, cookieOptions);
-    res.redirect('/assistlink/');
+    res.redirect(returnTo ?? '/assistlink/');
     return res;
   }
 

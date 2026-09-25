@@ -23,7 +23,7 @@ const OPPORTUNITY_TYPES = [
   { value: 'PEER_TUTOR', label: 'Peer Tutor', filterLabel: 'Peer tutoring', className: 'tutor' },
 ];
 const opportunityType = value => OPPORTUNITY_TYPES.find(type => type.value === value) || { value, label: value, filterLabel: value, className: '' };
-const state = { user: null, view: 'opportunities', posts: [], applications: [], category: 'ALL', search: '', development: false, demoAuthEnabled: false, revision: 0, users: [], userQuery: '', userRole: '', userPage: 1, userPagination: null };
+const state = { user: null, view: 'opportunities', postId: null, postReturnView: null, posts: [], applications: [], category: 'ALL', search: '', development: false, demoAuthEnabled: false, revision: 0, users: [], userQuery: '', userRole: '', userPage: 1, userPagination: null };
 let devUser;
 try { devUser = JSON.parse(sessionStorage.getItem('assistlink_dev') || 'null'); } catch { sessionStorage.removeItem('assistlink_dev'); }
 let noticeTimer;
@@ -35,6 +35,31 @@ let staffFilter = 'ALL';
 let adminCounts = null;
 let lastRoleChange = '';
 const homeView = () => state.user?.role === 'ADMIN' ? 'users' : state.user?.role === 'PROFESSOR' ? 'manage' : 'opportunities';
+const viewPath = view => `/assistlink/${view}/`;
+const postPath = id => `/assistlink/opportunities/${id}/`;
+function routeFromPath(path) {
+  const post = /^\/assistlink\/opportunities\/([1-9]\d*)\/?$/.exec(path);
+  if (post) return { view: 'opportunities', postId: Number(post[1]) };
+  const view = /^\/assistlink\/(opportunities|profile|applications|manage|users)\/?$/.exec(path);
+  if (view) return { view: view[1] };
+  if (/^\/assistlink\/login\/?$/.test(path)) return { view: 'login' };
+  return { view: 'home' };
+}
+function requestedPath() {
+  const next = new URLSearchParams(window.location.search).get('next');
+  return next && routeFromPath(next).view !== 'home' && routeFromPath(next).view !== 'login' && next.startsWith('/assistlink/') ? next : '/assistlink/';
+}
+function setPagePath(path, mode = 'push') {
+  if (mode === 'none' || window.location.pathname === path) return;
+  window.history[mode === 'replace' ? 'replaceState' : 'pushState']({}, '', path);
+}
+function showLoginPage() {
+  state.view = 'login';
+  state.postId = null;
+  renderNav();
+  document.title = 'AssistLink · Sign in';
+  $('#main').innerHTML = heading('Sign in to AssistLink.', 'Use your university account to continue.') + empty('Your campus workspace awaits', 'Sign in to view opportunities, your profile, and your applications.', '<button class="button primary" data-action="signin">Sign in ↗</button>');
+}
 function notify(message) { $('#notice').textContent = message; $('#notice').hidden = false; clearTimeout(noticeTimer); noticeTimer = setTimeout(() => $('#notice').hidden = true, 6000); }
 async function api(path, method = 'GET', body) {
   const isFormData = body instanceof FormData;
@@ -93,27 +118,34 @@ async function recoverAccess(error) {
   }
   return false;
 }
-async function navigate(view, skipSession = false) {
+async function navigate(view, skipSession = false, historyMode = 'push') {
   if (profileSaving && !skipSession) { notify('Your profile is saving. Please wait a moment.'); return; }
   if (profileDirty && state.view === 'profile' && !skipSession && !window.confirm('Leave your profile without saving your changes?')) return;
   const revision = ++state.revision;
   $('#main').innerHTML = '<div class="empty" role="status">Loading your workspace…</div>';
   try {
     if (!skipSession) {
+      const hadAccount = Boolean(state.user);
       const changed = await refreshAccount();
-      if (changed) { $('#dialog').close(); view = homeView(); }
+      if (changed && hadAccount) { $('#dialog').close(); view = homeView(); }
     }
     if (revision !== state.revision) return;
+    const requestedView = view;
     view = allowedView(view) ? view : homeView();
-    profileDirty = false;
-    state.view = view;
-    renderNav();
-    document.title = `AssistLink · ${{opportunities:'Opportunities',applications:'My applications',profile:'My profile',manage:'My postings',users:'Users'}[view]}`;
     if (!state.user) {
       state.users = []; state.posts = []; state.applications = [];
-      $('#main').innerHTML = heading('Find your next opportunity.', 'Put your skills to work. Build experience that matters.') + '<section class="banner"><div><p class="eyebrow">Research & teaching</p><h2>A little curiosity goes a long way.</h2><p>Connect with professors, contribute to meaningful projects, and take your learning beyond the classroom.</p></div><span class="banner-icon" aria-hidden="true">↗</span></section>' + empty('Your next chapter starts here', 'Sign in with your university account to explore research and teaching roles, manage your profile, and follow your applications.', '<button class="button primary" data-action="signin">Sign in with Microsoft <span aria-hidden="true">↗</span></button>');
+      const next = window.location.pathname.startsWith('/assistlink/') && routeFromPath(window.location.pathname).view !== 'login'
+        ? window.location.pathname : viewPath(view);
+      showLoginPage();
+      window.location.replace(`/assistlink/login/?next=${encodeURIComponent(next)}`);
       return;
     }
+    profileDirty = false;
+    state.view = view;
+    state.postId = null;
+    setPagePath(viewPath(view), view !== requestedView ? 'replace' : historyMode);
+    renderNav();
+    document.title = `AssistLink · ${{opportunities:'Opportunities',applications:'My applications',profile:'My profile',manage:'My postings',users:'Users'}[view]}`;
     if (view === 'users') {
       const query = new URLSearchParams({ q: state.userQuery, page: String(state.userPage) });
       if (state.userRole) query.set('role', state.userRole);
@@ -200,13 +232,29 @@ function renderCards() {
 function openDialog(title, content) { $('#dialog-content').innerHTML = `<div class="dialog-heading"><h2 id="dialog-title">${title}</h2><button class="close" aria-label="Close dialog" data-action="close">×</button></div>${content}`; if (!$('#dialog').open) $('#dialog').showModal(); }
 function signIn() {
   const demoForm = state.demoAuthEnabled ? '<form id="demo-login-form" class="demo-login-form"><div class="field"><label for="demo-email">Email</label><input id="demo-email" name="email" type="email" autocomplete="username" required maxlength="320"></div><div class="field"><label for="demo-passcode">Passcode</label><input id="demo-passcode" name="passcode" type="password" autocomplete="current-password" required maxlength="256"></div><p class="form-error" role="alert"></p><button class="button primary" type="submit">Sign in</button></form><div class="signin-divider"><span>or</span></div>' : '';
-  openDialog('Welcome to AssistLink', demoForm + '<p class="muted">Use your university Microsoft account to access your campus workspace.</p><a class="button" href="/assistlink/api/auth/login?web=1">Continue with Microsoft ↗</a>');
+  openDialog('Welcome to AssistLink', demoForm + '<p class="muted">Use your university Microsoft account to access your campus workspace.</p><a class="button" href="/assistlink/api/auth/login?web=1&next=' + encodeURIComponent(requestedPath()) + '">Continue with Microsoft ↗</a>');
 }
-async function showPost(id) {
+async function showPost(id, historyMode = 'push') {
+  if (!Number.isSafeInteger(id) || id <= 0) return;
+  state.postReturnView = state.view;
+  state.postId = id;
+  setPagePath(postPath(id), historyMode);
   openDialog('Opportunity', '<p role="status">Loading opportunity…</p><p class="form-error" id="dialog-error" role="alert"></p>');
-  const post = await api(`/posts/${id}`);
-  if (!$('#dialog').open) return;
+  let post;
+  try { post = await api(`/posts/${id}`); }
+  catch (error) {
+    if (await recoverAccess(error).catch(() => false)) return;
+    openDialog('Unable to load opportunity', `<p role="alert">${escapeHtml(error.message)}</p>`);
+    return;
+  }
+  if (state.postId !== id || !$('#dialog').open) return;
   openDialog(escapeHtml(post.title), `${badge(post)}<p class="author">${escapeHtml(post.author?.name)} · Posted ${date(post.createdAt)} · ${escapeHtml(post.status)}</p><p class="preserve">${escapeHtml(post.details)}</p><h3>Skills</h3>${tags(post.requiredSkills)}<div class="actions">${state.user?.role === 'STUDENT' && post.status === 'OPEN' ? `<button class="button primary" data-apply="${post.id}">Apply for this opportunity</button>` : ''}${owns(post) ? `<button class="button primary" data-applicants="${post.id}">Review applicants</button><button class="button" data-edit="${post.id}">Edit posting</button>${post.status === 'OPEN' ? `<button class="button danger" data-close-post="${post.id}">Close posting</button>` : ''}` : ''}</div><p class="form-error" id="dialog-error" role="alert"></p>`);
+}
+async function leavePost() {
+  if (!state.postId) return;
+  const returnView = state.postReturnView || 'opportunities';
+  state.postId = null;
+  await navigate(returnView);
 }
 function field(label, name, value = '', type = 'text', attrs = '') { return `<div class="field"><label for="${name}">${label}</label><input id="${name}" name="${name}" type="${type}" value="${escapeHtml(value)}" ${attrs}></div>`; }
 function area(label, name, value = '', attrs = '') { return `<div class="field"><label for="${name}">${label}</label><textarea id="${name}" name="${name}" ${attrs}>${escapeHtml(value)}</textarea></div>`; }
@@ -285,16 +333,16 @@ document.addEventListener('click', async event => {
     else if (button.dataset.edit) postForm(await api(`/posts/${button.dataset.edit}`));
     else if (button.dataset.applicants) await applicants(Number(button.dataset.applicants));
     else if (button.dataset.rank) { button.disabled = true; button.textContent = 'Ranking applicants…'; await api(`/posts/${button.dataset.rank}/rank`, 'POST', {}); await applicants(Number(button.dataset.rank), 'AI ranking finished. Scores are up to date.'); }
-    else if (button.dataset.apply) { button.disabled = true; await api(`/posts/${button.dataset.apply}/applications`, 'POST', {}); $('#dialog').close(); notify('Application submitted. Follow its progress in My applications.'); }
+    else if (button.dataset.apply) { button.disabled = true; await api(`/posts/${button.dataset.apply}/applications`, 'POST', {}); $('#dialog').close(); await leavePost(); notify('Application submitted. Follow its progress in My applications.'); }
     else if (button.dataset.closePost) { const id = button.dataset.closePost; openDialog('Close this posting?', `<p>Students will no longer be able to apply. You can still review existing applicants in My postings.</p><button class="button danger" data-confirm-close="${id}">Close posting</button>`); }
     else if (button.dataset.confirmClose) { button.disabled = true; await api(`/posts/${button.dataset.confirmClose}/close`, 'PATCH', {}); $('#dialog').close(); notify('Posting closed.'); await navigate(state.view); }
     else if (button.dataset.decision) { button.disabled = true; await api(`/applications/${button.dataset.decision}`, 'PATCH', { status: button.dataset.status }); await applicants(Number(button.dataset.parent), 'Decision saved: ' + (button.dataset.status === 'ACCEPTED' ? 'applicant accepted.' : 'applicant rejected.')); await refreshStaff(); }
     else if (button.dataset.action === 'signin') signIn();
     else if (button.dataset.action === 'delete-resume') { if (!window.confirm('Delete your uploaded résumé and extracted text?')) return; button.disabled = true; await api('/me/resume', 'DELETE'); await navigate('profile'); notify('Résumé deleted.'); }
-    else if (button.dataset.action === 'close') $('#dialog').close();
+    else if (button.dataset.action === 'close') { $('#dialog').close(); await leavePost(); }
     else if (button.dataset.action === 'create') postForm();
     else if (button.dataset.action === 'retry') await navigate(state.view);
-    else if (button.dataset.action === 'logout') { if (profileSaving) { notify('Please wait for your profile to finish saving.'); return; } if (profileDirty && !window.confirm('Sign out without saving your profile changes?')) return; await api('/auth/logout','POST'); profileDirty = false; lastRoleChange = ''; adminCounts = null; devUser = null; sessionStorage.removeItem('assistlink_dev'); state.user = null; state.posts = []; state.applications = []; await navigate(homeView()); }
+    else if (button.dataset.action === 'logout') { if (profileSaving) { notify('Please wait for your profile to finish saving.'); return; } if (profileDirty && !window.confirm('Sign out without saving your profile changes?')) return; await api('/auth/logout','POST'); profileDirty = false; lastRoleChange = ''; adminCounts = null; devUser = null; sessionStorage.removeItem('assistlink_dev'); state.user = null; state.posts = []; state.applications = []; window.location.replace('/assistlink/login/'); }
   } catch (error) { if (await recoverAccess(error).catch(() => false)) return; if (button.dataset.rank) button.textContent = 'Retry ranking'; const output = $('#dialog-error'); if (output) output.textContent = error.message; else notify(error.message); }
   finally { if (button.isConnected && !button.dataset.saveRole) button.disabled = false; }
 });
@@ -352,11 +400,33 @@ document.addEventListener('submit', async event => {
       }
     }
     if (form.id === 'post-form') { const id = form.dataset.id; await api(`/posts${id ? '/' + id : ''}`, id ? 'PATCH' : 'POST', { ...values, private: values.private === 'on', requiredSkills: splitSkills(values.requiredSkills) }); $('#dialog').close(); notify(id ? 'Posting updated.' : 'Opportunity published.'); await navigate('manage'); }
-    if (form.id === 'demo-login-form') { const result = await api('/auth/demo-login', 'POST', { email: values.email, passcode: values.passcode }); state.user = result.user; $('#dialog').close(); await navigate(homeView()); }
+    if (form.id === 'demo-login-form') { await api('/auth/demo-login', 'POST', { email: values.email, passcode: values.passcode }); window.location.assign(requestedPath()); }
   } catch (error) { if (form.id !== 'demo-login-form' && await recoverAccess(error).catch(() => false)) return; form.querySelector('.form-error').textContent = error.message; }
   finally { submit.disabled = false; }
 });
+window.addEventListener('popstate', async () => {
+  const route = routeFromPath(window.location.pathname);
+  $('#dialog').close();
+  state.postId = null;
+  if (route.view === 'login') { showLoginPage(); return; }
+  await navigate(route.view, false, 'none');
+  if (route.postId && state.user) await showPost(route.postId, 'none');
+});
+$('#dialog').addEventListener('cancel', event => {
+  if (!state.postId) return;
+  event.preventDefault();
+  $('#dialog').close();
+  void leavePost();
+});
 (async function start() {
   try { const options = await api('/auth/options'); state.development = options.development; state.demoAuthEnabled = options.demoAuthEnabled; } catch { state.user = null; }
-  await navigate('home');
+  const route = routeFromPath(window.location.pathname);
+  if (route.view === 'login') {
+    await refreshAccount().catch(() => { state.user = null; });
+    if (state.user) window.location.replace(requestedPath());
+    else showLoginPage();
+    return;
+  }
+  await navigate(route.view, false, route.view === 'home' ? 'replace' : 'none');
+  if (route.postId && state.user) await showPost(route.postId, 'none');
 })();

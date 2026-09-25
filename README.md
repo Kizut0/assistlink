@@ -11,6 +11,13 @@ Microsoft Entra ID/MSAL, and OpenRouter.
 All API routes use the `/assistlink/api` prefix. The web interface is available at
 `/assistlink/` and is served directly by Express.
 
+Workspace pages have shareable URLs: `/assistlink/opportunities/`,
+`/assistlink/opportunities/<id>/`, `/assistlink/profile/`,
+`/assistlink/applications/`, `/assistlink/manage/`, and `/assistlink/users/`.
+Opening one without a browser session redirects to `/assistlink/login/`; sign-in
+returns to the requested page. Profile and applications are student pages, while
+manage and users require their corresponding roles in the app and API.
+
 ## Quick start
 
 Requirements: Node.js 22+, Docker, and Docker Compose.

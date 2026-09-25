@@ -9,13 +9,16 @@ function harness(role = 'ADMIN') {
   const elements = new Map();
   const requests = [];
   const documentEvents = {};
+  const location = { pathname: '/assistlink/users/', search: '', replaced: null, assigned: null,
+    replace(path) { this.replaced = path; }, assign(path) { this.assigned = path; } };
+  const history = { pushState(_state, _title, path) { location.pathname = path; }, replaceState(_state, _title, path) { location.pathname = path; } };
   function element(selector) {
-    if (!elements.has(selector)) elements.set(selector, { innerHTML: '', textContent: '', hidden: true, open: true, close() { this.open = false; } });
+    if (!elements.has(selector)) elements.set(selector, { innerHTML: '', textContent: '', hidden: true, open: true, events: {}, addEventListener(name, handler) { this.events[name] = handler; }, close() { this.open = false; }, showModal() { this.open = true; } });
     return elements.get(selector);
   }
   const context = vm.createContext({
     document: { querySelector: element, addEventListener(name, handler) { documentEvents[name] = handler; }, title: '' },
-    window: { confirm() { return false; }, addEventListener(name, handler) { windowEvents[name] = handler; } },
+    window: { location, history, confirm() { return false; }, addEventListener(name, handler) { windowEvents[name] = handler; } },
     FormData: class { constructor(form) { this.values = form.values || {}; } [Symbol.iterator]() { return Object.entries(this.values)[Symbol.iterator](); } },
     sessionStorage: { getItem() { return null; }, removeItem() {} },
     setTimeout() {}, clearTimeout() {}, URLSearchParams, URL,
@@ -29,7 +32,7 @@ function harness(role = 'ADMIN') {
   const source = readFileSync(require.resolve('../public/app.js'), 'utf8').split('(async function start()')[0];
   vm.runInContext(source, context);
   vm.runInContext(`state.user = {userId:1,role:'${role}'}; state.view = 'users';`, context);
-  return { context, elements, requests, element, documentEvents, setRole(value) { currentRole = value; }, focus: () => windowEvents.focus() };
+  return { context, elements, requests, element, documentEvents, location, setRole(value) { currentRole = value; }, focus: () => windowEvents.focus(), popstate: () => windowEvents.popstate() };
 }
 
 test('window focus after demotion removes admin navigation, closes stale dialogs and loads an allowed view', async () => {
@@ -56,7 +59,8 @@ test('expired sessions return to sign-in and clear cached user data', async () =
   const h = harness(); h.setRole(null);
   await h.focus();
   assert.equal(vm.runInContext('state.user', h.context), null);
-  assert.match(h.element('#main').innerHTML, /Sign in with Microsoft/);
+  assert.match(h.element('#main').innerHTML, /Sign in to AssistLink/);
+  assert.equal(h.location.replaced, '/assistlink/login/?next=%2Fassistlink%2Fusers%2F');
   assert.equal(vm.runInContext('state.users.length', h.context), 0);
 });
 
@@ -75,6 +79,50 @@ test('role-specific landing pages prioritize professor applications and admin ac
     assert.equal(vm.runInContext('state.view', h.context), view);
     assert.ok(h.requests.some(url => url.includes(endpoint)));
   }
+});
+
+test('workspace navigation gives pages shareable paths and back navigation restores them', async () => {
+  const h = harness('STUDENT');
+  await vm.runInContext("navigate('profile')", h.context);
+  assert.equal(h.location.pathname, '/assistlink/profile/');
+  await vm.runInContext("navigate('applications')", h.context);
+  assert.equal(h.location.pathname, '/assistlink/applications/');
+  h.location.pathname = '/assistlink/profile/';
+  await h.popstate();
+  assert.equal(vm.runInContext('state.view', h.context), 'profile');
+});
+
+test('first session check preserves a directly opened permitted page', async () => {
+  const h = harness('STUDENT');
+  h.location.pathname = '/assistlink/profile/';
+  vm.runInContext('state.user = null', h.context);
+  await vm.runInContext("navigate('profile', false, 'none')", h.context);
+  assert.equal(vm.runInContext('state.view', h.context), 'profile');
+  assert.equal(h.location.pathname, '/assistlink/profile/');
+  assert.ok(h.requests.some(url => url.endsWith('/me/profile')));
+});
+
+test('opportunity URLs parse numeric IDs and sign-in keeps a safe return path', () => {
+  const h = harness(null);
+  assert.equal(vm.runInContext("routeFromPath('/assistlink/opportunities/42/').postId", h.context), 42);
+  h.location.pathname = '/assistlink/login/';
+  h.location.search = '?next=%2Fassistlink%2Fopportunities%2F42%2F';
+  vm.runInContext('signIn()', h.context);
+  assert.match(h.element('#dialog-content').innerHTML, /next=%2Fassistlink%2Fopportunities%2F42%2F/);
+  h.location.search = '?next=https%3A%2F%2Fevil.example';
+  assert.equal(vm.runInContext('requestedPath()', h.context), '/assistlink/');
+});
+
+test('opening a shared opportunity URL restores its detail dialog', async () => {
+  const h = harness('STUDENT');
+  const originalFetch = h.context.fetch;
+  h.context.fetch = async (url, options) => url.endsWith('/posts/42')
+    ? { ok: true, status: 200, json: async () => ({ data: { id: 42, title: 'Research assistant', author: { name: 'Professor Lee' }, createdAt: '2026-09-01', status: 'OPEN', jobCategory: 'RA', requiredSkills: [], details: 'Help with research' } }) }
+    : originalFetch(url, options);
+  h.location.pathname = '/assistlink/opportunities/42/';
+  await h.popstate();
+  assert.equal(h.location.pathname, '/assistlink/opportunities/42/');
+  assert.match(h.element('#dialog-content').innerHTML, /Research assistant/);
 });
 
 test('profile distinguishes saved data, unsaved edits, reverting edits, and navigation cancellation', async () => {
