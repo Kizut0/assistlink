@@ -15,9 +15,19 @@ const app = express();
 app.set('trust proxy', 'loopback');
 app.use(express.json());
 app.use(requestLogger);
+app.use((_req, res, next) => {
+  res.set('Referrer-Policy', 'no-referrer');
+  res.set('X-Content-Type-Options', 'nosniff');
+  res.set('X-Frame-Options', 'DENY');
+  res.set('Content-Security-Policy', "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self'; form-action 'self'; base-uri 'none'; object-src 'none'; frame-ancestors 'none'");
+  next();
+});
 
 // All API routes are namespaced under /assistlink/api (course infra requirement).
-app.use('/assistlink/api', routes);
+app.use('/assistlink/api', (_req, res, next) => {
+  res.set('Cache-Control', 'no-store');
+  next();
+}, routes);
 
 app.get('/', (_req, res) => res.redirect('/assistlink/'));
 app.use('/assistlink', express.static(path.join(import.meta.dirname, '../public')));
@@ -28,6 +38,7 @@ const protectedPages = [
   '/assistlink/profile', '/assistlink/applications', '/assistlink/manage', '/assistlink/users',
 ];
 app.get(protectedPages, (req, res, next) => {
+  res.set('Cache-Control', 'no-store');
   void auth(req, res, error => {
     if (error instanceof ApiError && error.statusCode === 401) {
       return res.redirect(`/assistlink/login/?next=${encodeURIComponent(req.originalUrl)}`);

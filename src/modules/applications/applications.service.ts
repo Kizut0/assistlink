@@ -71,13 +71,13 @@ const applicantSelect = {
 } as const;
 
 export async function applyToPost(userId: number, postId: number) {
-  const studentId = await getStudentIdForUser(userId);
-
   const post = await prisma.post.findUnique({ where: { id: postId } });
   if (!post) throw ApiError.notFound(`Post ${postId} not found`);
+  if (post.private) throw ApiError.notFound(`Post ${postId} not found`);
   if (post.status !== 'OPEN') {
     throw ApiError.badRequest('This post is closed and no longer accepting applications');
   }
+  const studentId = await getStudentIdForUser(userId);
 
   const existing = await prisma.application.findFirst({ where: { postId, studentId } });
   if (existing) throw ApiError.conflict('You have already applied to this post');

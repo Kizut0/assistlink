@@ -17,6 +17,8 @@ Workspace pages have shareable URLs: `/assistlink/opportunities/`,
 Opening one without a browser session redirects to `/assistlink/login/`; sign-in
 returns to the requested page. Profile and applications are student pages, while
 manage and users require their corresponding roles in the app and API.
+Private postings are visible to their author, admins, and students who already
+applied; new students cannot view or apply to them by guessing an ID.
 
 ## Quick start
 
@@ -40,6 +42,8 @@ Open:
 Prisma migrations are the database source of truth. Do not use `prisma db push`.
 After changing `prisma/schema.prisma`, create a migration and run
 `npm run generate`.
+The `deepmerge-ts` and `mysql2` npm overrides pin patched Prisma tooling
+dependencies; recheck them when upgrading Prisma.
 
 ## Configuration
 

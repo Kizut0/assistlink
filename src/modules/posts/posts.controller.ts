@@ -6,7 +6,7 @@ import * as service from './posts.service.js';
 
 function parseId(raw: string | string[] | undefined): number {
   const id = Number(raw);
-  if (!Number.isInteger(id) || id <= 0) {
+  if (!Number.isSafeInteger(id) || id <= 0 || id > 2_147_483_647) {
     throw ApiError.badRequest('Invalid post id');
   }
   return id;
@@ -21,7 +21,7 @@ export async function workspace(req: Request, res: Response): Promise<Response> 
 }
 
 export async function getOne(req: Request, res: Response): Promise<Response> {
-  return ok(res, await service.getPost(parseId(req.params.id)));
+  return ok(res, await service.getPost(parseId(req.params.id), req.user!));
 }
 
 // Body already validated by the shared validate() middleware (Task 21).

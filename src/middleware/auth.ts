@@ -47,17 +47,19 @@ export async function auth(req: Request, _res: Response, next: NextFunction): Pr
   }
 
   const header = req.header('authorization') ?? '';
-  const token = header.startsWith('Bearer ') ? header.slice(7) : readCookie(req, 'assistlink_session');
+  const bearer = /^Bearer\s+([^\s]+)$/i.exec(header)?.[1];
+  if (header && !bearer) return next(ApiError.unauthorized('Invalid Authorization header'));
+  const token = bearer ?? readCookie(req, 'assistlink_session');
   if (!token) return next(ApiError.unauthorized('No token'));
   // Browser writes must opt in with a same-origin-only custom header. Cross-origin
   // requests cannot set this without a CORS preflight, which this app does not allow.
-  if (!header && !['GET', 'HEAD', 'OPTIONS'].includes(req.method) && req.header('x-assistlink-request') !== 'web') {
+  if (!bearer && !['GET', 'HEAD', 'OPTIONS'].includes(req.method) && req.header('x-assistlink-request') !== 'web') {
     return next(ApiError.forbidden('Missing browser request header'));
   }
 
   let userId: number;
   try {
-    const decoded = jwt.verify(token, config.jwt.secret);
+    const decoded = jwt.verify(token, config.jwt.secret, { algorithms: ['HS256'] });
     if (typeof decoded === 'string') return next(ApiError.unauthorized('Invalid token'));
     const payload = decoded as JwtPayload;
     userId = Number(payload.userId);

@@ -32,12 +32,18 @@ export function listPosts(authorId?: number) {
   });
 }
 
-export async function getPost(id: number) {
+export async function getPost(id: number, actor: AuthUser) {
   const post = await prisma.post.findUnique({
     where: { id },
     include: { author: { select: authorSelect } },
   });
   if (!post) throw ApiError.notFound(`Post ${id} not found`);
+  if (post.private && post.authorId !== actor.userId && actor.role !== 'ADMIN') {
+    const application = actor.role === 'STUDENT'
+      ? await prisma.application.findFirst({ where: { postId: id, student: { userId: actor.userId } }, select: { id: true } })
+      : null;
+    if (!application) throw ApiError.notFound(`Post ${id} not found`);
+  }
   return post;
 }
 

@@ -11,7 +11,7 @@ export async function listMine(req: Request, res: Response): Promise<Response> {
 
 function parseId(raw: string | string[] | undefined, label: string): number {
   const id = Number(raw);
-  if (!Number.isInteger(id) || id <= 0) {
+  if (!Number.isSafeInteger(id) || id <= 0 || id > 2_147_483_647) {
     throw ApiError.badRequest(`Invalid ${label} id`);
   }
   return id;

@@ -28,6 +28,8 @@ afterEach(() => { prisma.user.findUnique = originalFindUser; });
 test('serves the web UI and assets without authentication, preserves API 404s', async () => {
   const response = await fetch(`${base}/assistlink/`);
   assert.equal(response.status, 200);
+  assert.match(response.headers.get('content-security-policy') ?? '', /frame-ancestors 'none'/);
+  assert.equal(response.headers.get('x-frame-options'), 'DENY');
   assert.match(await response.text(), /<title>AssistLink/);
   for (const asset of ['app.js', 'styles.css']) assert.equal((await fetch(`${base}/assistlink/${asset}`)).status, 200);
   const missing = await fetch(`${base}/assistlink/api/missing`);
@@ -58,6 +60,53 @@ test('supports cookies and bearer tokens, rejects expired sessions', async () =>
   assert.equal((await fetch(`${base}/assistlink/api/auth/me`, { headers: { cookie: `assistlink_session=${expired}` } })).status, 401);
 });
 
+test('every protected API route rejects anonymous requests', async () => {
+  const routes: Array<[string, string]> = [
+    ['GET', '/auth/me'], ['GET', '/posts'], ['GET', '/posts/workspace'],
+    ['GET', '/posts/1'], ['POST', '/posts'], ['PATCH', '/posts/1'],
+    ['PATCH', '/posts/1/close'], ['POST', '/posts/1/rank'],
+    ['POST', '/posts/1/applications'], ['GET', '/posts/1/applications'],
+    ['GET', '/posts/1/applications/1/resume'], ['PATCH', '/applications/1'],
+    ['GET', '/me/profile'], ['PUT', '/me/profile'], ['GET', '/me/applications'],
+    ['GET', '/me/resume'], ['POST', '/me/resume'], ['DELETE', '/me/resume'],
+    ['GET', '/users'], ['PATCH', '/users/1/role'],
+  ];
+  for (const [method, route] of routes) {
+    const response = await fetch(`${base}/assistlink/api${route}`, { method });
+    assert.equal(response.status, 401, `${method} ${route}`);
+    assert.equal(response.headers.get('cache-control'), 'no-store');
+  }
+});
+
+test('role restricted APIs reject the wrong signed-in role', async () => {
+  const professor = jwt.sign({ userId: 1, role: 'PROFESSOR' }, config.jwt.secret, { expiresIn: '5m' });
+  const cases: Array<[string, string, string]> = [
+    ['GET', '/users', cookie], ['PATCH', '/users/1/role', cookie],
+    ['GET', '/posts/workspace', cookie], ['POST', '/posts', cookie],
+    ['PATCH', '/posts/1', cookie], ['PATCH', '/posts/1/close', cookie],
+    ['POST', '/posts/1/rank', cookie], ['GET', '/posts/1/applications', cookie],
+    ['GET', '/posts/1/applications/1/resume', cookie], ['PATCH', '/applications/1', cookie],
+    ['GET', '/me/profile', `assistlink_session=${professor}`],
+    ['PUT', '/me/profile', `assistlink_session=${professor}`],
+    ['GET', '/me/applications', `assistlink_session=${professor}`],
+    ['GET', '/me/resume', `assistlink_session=${professor}`],
+    ['POST', '/me/resume', `assistlink_session=${professor}`],
+    ['DELETE', '/me/resume', `assistlink_session=${professor}`],
+    ['POST', '/posts/1/applications', `assistlink_session=${professor}`],
+  ];
+  for (const [method, route, cookieHeader] of cases) {
+    const response = await fetch(`${base}/assistlink/api${route}`, { method, headers: { cookie: cookieHeader, 'x-assistlink-request': 'web' } });
+    assert.equal(response.status, 403, `${method} ${route}`);
+  }
+});
+
+test('oversized database IDs are rejected before any lookup', async () => {
+  assert.equal((await fetch(`${base}/assistlink/api/posts/2147483648`, { headers: { cookie } })).status, 400);
+  assert.equal((await fetch(`${base}/assistlink/api/posts/2147483648/applications`, {
+    method: 'POST', headers: { cookie, 'x-assistlink-request': 'web' },
+  })).status, 400);
+});
+
 test('unauthenticated writes keep the existing 401 contract', async () => {
   const response = await fetch(`${base}/assistlink/api/posts`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: '{}' });
   assert.equal(response.status, 401);
@@ -68,6 +117,10 @@ test('cookie-authenticated writes require the browser request header', async () 
     method: 'PUT', headers: { cookie, 'content-type': 'application/json' }, body: JSON.stringify({ bio: 'test' }),
   });
   assert.equal(response.status, 403);
+  const malformedAuth = await fetch(`${base}/assistlink/api/me/profile`, {
+    method: 'PUT', headers: { cookie, authorization: 'Basic ignored', 'content-type': 'application/json' }, body: JSON.stringify({ bio: 'test' }),
+  });
+  assert.equal(malformedAuth.status, 401);
   const logout = await fetch(`${base}/assistlink/api/auth/logout`, { method: 'POST', headers: { cookie, 'x-assistlink-request': 'web' } });
   assert.equal(logout.status, 200);
   assert.match(logout.headers.get('set-cookie')!, /assistlink_session=;/);
@@ -75,8 +128,15 @@ test('cookie-authenticated writes require the browser request header', async () 
 });
 
 test('rejects OAuth callbacks without matching state before exchanging a code', async () => {
-  const response = await fetch(`${base}/assistlink/api/auth/callback?code=invalid&state=invalid`);
-  assert.equal(response.status, 401);
+  const logs: string[] = [];
+  const originalLog = console.log;
+  console.log = (...values: unknown[]) => { logs.push(values.map(String).join(' ')); };
+  try {
+    const response = await fetch(`${base}/assistlink/api/auth/callback?code=secret-authorization-code&state=invalid`);
+    assert.equal(response.status, 401);
+  } finally { console.log = originalLog; }
+  assert.ok(logs.some(line => line.includes('/assistlink/api/auth/callback')));
+  assert.ok(logs.every(line => !line.includes('secret-authorization-code')));
 });
 
 test('application history is restricted to the current student', async () => {
@@ -104,6 +164,24 @@ test('mine filter scopes posts to the actor and retains private/closed posts', a
     await fetch(`${base}/assistlink/api/posts`, { headers });
     assert.deepEqual((query as { where: unknown }).where, { status: 'OPEN', private: false });
   } finally { prisma.post.findMany = original; }
+});
+
+test('private post details stay hidden from unrelated authenticated users', async () => {
+  const original = prisma.post.findUnique;
+  const originalApplications = prisma.application.findFirst;
+  prisma.post.findUnique = (async () => ({ id: 7, authorId: 1, private: true, status: 'OPEN', title: 'Private role' })) as typeof original;
+  prisma.application.findFirst = (async () => null) as typeof originalApplications;
+  try {
+    const student = await fetch(`${base}/assistlink/api/posts/7`, { headers: { cookie } });
+    assert.equal(student.status, 404);
+    const owner = jwt.sign({ userId: 1, role: 'PROFESSOR' }, config.jwt.secret);
+    const response = await fetch(`${base}/assistlink/api/posts/7`, { headers: { authorization: `Bearer ${owner}` } });
+    assert.equal(response.status, 200);
+    assert.equal((await response.json()).data.title, 'Private role');
+  } finally {
+    prisma.post.findUnique = original;
+    prisma.application.findFirst = originalApplications;
+  }
 });
 
 test('professor dashboard is staff-only, scoped to its author, and prioritizes pending applications', async () => {

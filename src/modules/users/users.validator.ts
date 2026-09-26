@@ -2,7 +2,7 @@ import { z } from 'zod';
 
 export const roleSchema = z.enum(['STUDENT', 'PROFESSOR', 'ADMIN']);
 export const assignRoleSchema = z.object({ role: roleSchema }).strict();
-export const userIdSchema = z.coerce.number().int().positive().max(Number.MAX_SAFE_INTEGER);
+export const userIdSchema = z.coerce.number().int().positive().max(2_147_483_647);
 export const listUsersSchema = z.object({
   q: z.string().trim().max(200).default(''),
   role: roleSchema.optional(),

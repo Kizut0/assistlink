@@ -77,7 +77,7 @@ export async function callback(req: Request, res: Response): Promise<Response> {
   let browserLogin = false;
   let returnTo: string | undefined;
   try {
-    const saved = jwt.verify(readCookie(req, 'assistlink_oauth') ?? '', config.jwt.secret) as jwt.JwtPayload;
+    const saved = jwt.verify(readCookie(req, 'assistlink_oauth') ?? '', config.jwt.secret, { algorithms: ['HS256'] }) as jwt.JwtPayload;
     const actual = typeof req.query.state === 'string' ? req.query.state : '';
     if (typeof saved.state !== 'string' || actual.length !== saved.state.length || !timingSafeEqual(Buffer.from(actual), Buffer.from(saved.state))) throw new Error('State mismatch');
     browserLogin = saved.web === true;
